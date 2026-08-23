@@ -291,8 +291,7 @@ final class DictationController {
         }
         // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
         panel.hide()
-        TextInserter.insert(text, target: target) { [weak self] result in
-            guard let self else { return }
+        TextInserter.insert(text, target: target) { result in
             switch result {
             case .inserted:
                 // 自动学习(AutoLearner.beginObservation)尚未打磨好,暂时停用;
