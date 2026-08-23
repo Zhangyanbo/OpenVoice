@@ -141,7 +141,12 @@ final class DictationController {
         }
 
         state = .recording(mode)
-        if settings.playSound { SoundPlayer.playStart() }
+        // 开始只响一声:提示音优先,关掉提示音后按键音仍可提供反馈
+        if settings.playSound {
+            SoundPlayer.playStart()
+        } else if settings.keyPressSound {
+            SoundPlayer.playKeyClick()
+        }
         if settings.showPanel {
             switch mode {
             case .dictation:
@@ -166,6 +171,7 @@ final class DictationController {
             return
         }
 
+        if settings.keyPressSound { SoundPlayer.playKeyClick() }
         state = .transcribing
         panel.showTranscribing()
         process(wav: wav, mode: mode, context: session.context, target: session.target)

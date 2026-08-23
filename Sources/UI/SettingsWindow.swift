@@ -245,8 +245,13 @@ private struct GeneralPane: View {
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "播放提示音") {
+                SettingsRow(title: "播放提示音", subtitle: "录音开始时") {
                     Toggle("", isOn: $settings.playSound)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
+                CardDivider()
+                SettingsRow(title: "按键音效", subtitle: "每次按下语音快捷键时") {
+                    Toggle("", isOn: $settings.keyPressSound)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
