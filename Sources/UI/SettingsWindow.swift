@@ -696,7 +696,7 @@ private struct HistoryPane: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 20)
-        .confirmationDialog("删除这条记录?",
+        .confirmationDialog("是否删除?",
                             isPresented: Binding(get: { pendingDelete != nil },
                                                  set: { if !$0 { pendingDelete = nil } }),
                             presenting: pendingDelete) { entry in
@@ -705,8 +705,6 @@ private struct HistoryPane: View {
                 pendingDelete = nil
             }
             Button("取消", role: .cancel) { pendingDelete = nil }
-        } message: { entry in
-            Text(String(entry.text.prefix(60)))
         }
     }
 
