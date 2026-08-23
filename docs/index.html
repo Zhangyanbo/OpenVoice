@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>OpenVoice — macOS 语音输入法</title>
+<meta name="description" content="光标放到任意地方 → 按 Fn → 说话 → 再按 Fn → 文字直接出现。无账号、无服务器，用你自己的 OpenAI API Key。" />
+<link rel="icon" type="image/png" href="icon_design.png" />
+<style>
+  :root {
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --fg-soft: #6b6b70;
+    --fg-faint: #9a9aa0;
+    --line: #ececee;
+    --card: #fafafa;
+    --accent: #1a1a1a;
+    --accent-fg: #ffffff;
+    --pill-bg: #f4f4f5;
+    --glow: rgba(0, 0, 0, 0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101012;
+      --fg: #f2f2f3;
+      --fg-soft: #9b9ba2;
+      --fg-faint: #6b6b72;
+      --line: #242428;
+      --card: #17171a;
+      --accent: #f2f2f3;
+      --accent-fg: #101012;
+      --pill-bg: #1c1c20;
+      --glow: rgba(255, 255, 255, 0.05);
+    }
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue",
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 16px;
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 0 24px; }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    border-bottom: 1px solid var(--line);
+  }
+  .nav {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+  .brand img { width: 22px; height: 22px; border-radius: 6px; }
+  .nav-links { display: flex; align-items: center; gap: 22px; margin-left: auto; font-size: 14px; color: var(--fg-soft); }
+  .nav-links a:hover { color: var(--fg); transition: color 0.15s; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-size: 14px;
+    font-weight: 500;
+    transition: opacity 0.15s, transform 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: var(--accent-fg); }
+  .btn-primary:hover { opacity: 0.85; }
+  .btn-lg { padding: 13px 30px; font-size: 15px; }
+
+  /* ---------- hero ---------- */
+  .hero {
+    text-align: center;
+    padding: 120px 24px 96px;
+  }
+  .hero img {
+    width: 96px;
+    height: 96px;
+    border-radius: 24px;
+    box-shadow: 0 8px 40px var(--glow), 0 2px 10px rgba(0,0,0,0.08);
+    margin-bottom: 40px;
+  }
+  .hero h1 {
+    font-size: clamp(34px, 5vw, 52px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.15;
+    margin-bottom: 20px;
+  }
+  .hero p.tagline {
+    font-size: clamp(17px, 2.2vw, 20px);
+    color: var(--fg-soft);
+    max-width: 560px;
+    margin: 0 auto 44px;
+  }
+  .hero .cta { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+  .cta-note { margin-top: 18px; font-size: 13px; color: var(--fg-faint); }
+
+  /* ---------- flow ---------- */
+  .flow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px 14px;
+    margin: 88px auto 0;
+    max-width: 900px;
+    font-size: 15px;
+  }
+  .step {
+    background: var(--pill-bg);
+    border-radius: 999px;
+    padding: 8px 18px;
+    color: var(--fg-soft);
+    white-space: nowrap;
+  }
+  .key {
+    display: inline-block;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 7px;
+    padding: 1px 9px;
+    font-size: 13px;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    color: var(--fg);
+    background: var(--card);
+  }
+  .arrow { color: var(--fg-faint); }
+
+  /* ---------- sections ---------- */
+  section { padding: 88px 0; }
+  section + section { border-top: 1px solid var(--line); }
+  h2 {
+    font-size: 26px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+    margin-bottom: 12px;
+  }
+  .section-sub { color: var(--fg-soft); margin-bottom: 44px; max-width: 560px; }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 14px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 26px 24px;
+  }
+  .card h3 { font-size: 15.5px; font-weight: 600; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .card p { font-size: 14px; color: var(--fg-soft); line-height: 1.65; }
+  .card .emoji { font-size: 20px; display: block; margin-bottom: 14px; }
+
+  /* ---------- privacy ---------- */
+  .privacy-list { list-style: none; display: grid; gap: 14px; }
+  .privacy-list li {
+    display: flex;
+    gap: 14px;
+    align-items: baseline;
+    font-size: 15px;
+    color: var(--fg-soft);
+  }
+  .privacy-list li strong { color: var(--fg); font-weight: 600; }
+  .mark { flex: none; color: #30a46c; font-weight: 700; }
+
+  /* ---------- footer ---------- */
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 36px 24px 48px;
+    text-align: center;
+    font-size: 13px;
+    color: var(--fg-faint);
+  }
+  footer a { color: var(--fg-soft); }
+  footer a:hover { color: var(--fg); }
+
+  @media (max-width: 640px) {
+    .hero { padding: 80px 20px 64px; }
+    .nav-links a:not(.btn) { display: none; }
+    section { padding: 64px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <nav class="nav">
+    <a class="brand" href="#">
+      <img src="icon_design.png" alt="" />
+      OpenVoice
+    </a>
+    <div class="nav-links">
+      <a href="#features">功能</a>
+      <a href="#privacy">隐私声明</a>
+      <a href="https://github.com/Zhangyanbo/OpenVoice">GitHub</a>
+      <a class="btn btn-primary" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">下载</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+  <div class="hero">
+    <img src="icon_design.png" alt="OpenVoice 图标" />
+    <h1>话音落处，文字已成</h1>
+    <p class="tagline">
+      一款开源的 macOS 菜单栏语音输入法。无账号、无服务器——
+      音频直接从你的 Mac 发给 OpenAI，其余一切只保存在本机。
+    </p>
+    <div class="cta">
+      <a class="btn btn-primary btn-lg" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">
+        下载 for macOS
+      </a>
+      <a class="btn btn-lg" style="border:1px solid var(--line)" href="https://github.com/Zhangyanbo/OpenVoice#readme">
+        查看文档
+      </a>
+    </div>
+    <p class="cta-note">macOS 14+ · 免费（非商业用途）· 使用自己的 OpenAI API Key</p>
+
+    <div class="flow">
+      <span class="step"><span class="key">Fn</span> 开始录音</span>
+      <span class="arrow">→</span>
+      <span class="step">说话</span>
+      <span class="arrow">→</span>
+      <span class="step"><span class="key">Fn</span> 停止</span>
+      <span class="arrow">→</span>
+      <span class="step">文字出现在光标处</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <section id="features">
+      <h2>为日常输入而设计</h2>
+      <p class="section-sub">它更像一种系统能力：不必打开主窗口，按一下 Fn 就够了。</p>
+      <div class="grid">
+        <div class="card">
+          <span class="emoji">🎙️</span>
+          <h3>全局语音输入</h3>
+          <p>在任何 App 里按 Fn 说话，整理好的文字直接插入光标位置，不抢焦点、不打断你。</p>
+        </div>
+        <div class="card">
+          <span class="emoji">🌍</span>
+          <h3>边说边翻译</h3>
+          <p>Fn + 左 Shift 说中文，出英文。悬浮条上可临时切换目标语言。</p>
+        </div>
+        <div class="card">
+          <span class="emoji">✨</span>
+          <h3>对选中文字下指令</h3>
+          <p>选中一段文字，说「翻译成中文」「写短一点」「整理成列表」，结果直接替换。</p>
+        </div>
+        <div class="card">
+          <span class="emoji">📖</span>
+          <h3>个人术语表</h3>
+          <p>人名、项目名、常被听错的词，识别会优先用你的拼写。全部只存本机。</p>
+        </div>
+        <div class="card">
+          <span class="emoji">🧠</span>
+          <h3>上下文感知</h3>
+          <p>读取光标附近的少量文字帮助识别专有名词与断句；读不到时自动降级，绝不报错。</p>
+        </div>
+        <div class="card">
+          <span class="emoji">⏳</span>
+          <h3>转录历史</h3>
+          <p>每条转录都可一键复制；Debug 模式下还能查看每次请求实际发送了什么。</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy">
+      <h2>隐私声明</h2>
+      <p class="section-sub">
+        隐私原则只有一条：每次只把当前语音请求所需的音频和少量文本上下文发送给 OpenAI，其余内容全部留在本机。
+      </p>
+      <ul class="privacy-list">
+        <li><span class="mark">✓</span><span><strong>你的 API Key 只保存在 macOS 钥匙串</strong>——不进日志、不进配置文件、不上传到任何第三方服务器。</span></li>
+        <li><span class="mark">✓</span><span><strong>音频只发往 OpenAI 官方 API</strong>——OpenVoice 本身没有服务器，也没有账号系统，看不到你的任何数据。</span></li>
+        <li><span class="mark">✓</span><span><strong>术语表、设置、历史全部存本机</strong>——没有云同步，没有遥测分析。</span></li>
+        <li><span class="mark">✓</span><span><strong>上下文读取只用 Accessibility API</strong>——不截图、不 OCR、不申请屏幕录制权限、不做键盘记录。</span></li>
+        <li><span class="mark">✓</span><span><strong>一切可关闭</strong>——上下文相关功能可在 设置 → 隐私 中逐项关掉；关掉后语音输入照常工作。</span></li>
+      </ul>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <p>
+    <a href="https://github.com/Zhangyanbo/OpenVoice">GitHub</a> ·
+    <a href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">下载最新版</a> ·
+    <a href="https://github.com/Zhangyanbo/OpenVoice/blob/main/LICENSE.md">PolyForm Noncommercial 1.0.0</a>
+  </p>
+  <p style="margin-top:8px">OpenVoice — 开源 macOS 语音输入法</p>
+</footer>
+
+</body>
+</html>
