@@ -227,7 +227,7 @@ final class DictationController {
                 }
 
                 let text = final
-                await MainActor.run { self.insert(text: text, target: target) }
+                await MainActor.run { self.insert(text: text, target: target, mode: mode, context: context) }
             } catch {
                 await MainActor.run {
                     self.transcriptionFailed(wav: wav, mode: mode, context: context,
@@ -237,8 +237,16 @@ final class DictationController {
         }
     }
 
-    private func insert(text: String, target: InsertionTarget?) {
+    private func insert(text: String, target: InsertionTarget?, mode: Mode, context: DictationContext) {
         state = .idle
+        if settings.keepHistory {
+            let modeLabel: String
+            switch mode {
+            case .dictation: modeLabel = "语音"
+            case .translation(let language): modeLabel = "翻译 → \(language)"
+            }
+            HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName)
+        }
         // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
         panel.hide()
         TextInserter.insert(text, target: target) { [weak self] result in

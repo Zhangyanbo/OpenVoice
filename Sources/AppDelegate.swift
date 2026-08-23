@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "开始翻译输入", action: #selector(startTranslation), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: ",").target = self
-        menu.addItem(withTitle: "查看上次发送的上下文", action: #selector(openSettings), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "转录历史…", action: #selector(openHistory), keyEquivalent: "").target = self
         menu.addItem(withTitle: "重新打开欢迎引导", action: #selector(openOnboarding), keyEquivalent: "").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "退出 OpenVoiceInput", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -91,6 +91,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openSettings() {
         SettingsWindowController.shared.show()
+    }
+
+    @objc private func openHistory() {
+        SettingsWindowController.shared.show(tab: .history)
     }
 
     @objc private func openOnboarding() {

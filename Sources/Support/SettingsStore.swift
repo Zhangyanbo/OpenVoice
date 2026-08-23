@@ -82,6 +82,9 @@ final class SettingsStore: ObservableObject {
     // MARK: - 术语表
     @Published var autoLearn: Bool { didSet { defaults.set(autoLearn, forKey: "autoLearn") } }
 
+    // MARK: - 历史
+    @Published var keepHistory: Bool { didSet { defaults.set(keepHistory, forKey: "keepHistory") } }
+
     // MARK: - OpenAI
     /// 空字符串表示"默认"
     @Published var transcribeModel: String { didSet { defaults.set(transcribeModel, forKey: "transcribeModel") } }
@@ -110,6 +113,7 @@ final class SettingsStore: ObservableObject {
         readNearbyText = defaults.object(forKey: "readNearbyText") as? Bool ?? true
         readSelectedText = defaults.object(forKey: "readSelectedText") as? Bool ?? true
         autoLearn = defaults.object(forKey: "autoLearn") as? Bool ?? true
+        keepHistory = defaults.object(forKey: "keepHistory") as? Bool ?? true
         transcribeModel = defaults.string(forKey: "transcribeModel") ?? ""
         llmModel = defaults.string(forKey: "llmModel") ?? ""
         onboardingDone = defaults.object(forKey: "onboardingDone") as? Bool ?? false
