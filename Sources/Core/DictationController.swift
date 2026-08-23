@@ -240,10 +240,14 @@ final class DictationController {
         let transcribeModel = settings.effectiveTranscribeModel
         let llmModel = settings.effectiveLLMModel
 
-        LastRequestLog.shared.contextSummary = context.summary
-        LastRequestLog.shared.termHint = termHint.isEmpty ? tr("（无）") : termHint
-        LastRequestLog.shared.timestamp = Date()
-        LastRequestLog.shared.resetPayload()
+        // 请求详情只在 Debug 开启时记录,关闭后不保留任何请求痕迹
+        let debug = settings.debugMode
+        if debug {
+            LastRequestLog.shared.contextSummary = context.summary
+            LastRequestLog.shared.termHint = termHint.isEmpty ? tr("（无）") : termHint
+            LastRequestLog.shared.timestamp = Date()
+            LastRequestLog.shared.resetPayload()
+        }
 
         // controller 与应用同生命周期,请求期间强持有以保证结果送达
         Task {
@@ -257,19 +261,21 @@ final class DictationController {
                     await MainActor.run { self.finishEmpty() }
                     return
                 }
-                LastRequestLog.shared.transcript = raw
+                if debug { LastRequestLog.shared.transcript = raw }
                 let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
                                                effort: settings.editingEffort,
                                                format: settings.formatLevel)
                 let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
-                LastRequestLog.shared.systemPrompt = system
-                LastRequestLog.shared.userPrompt = user
+                if debug {
+                    LastRequestLog.shared.systemPrompt = system
+                    LastRequestLog.shared.userPrompt = user
+                }
 
                 // 轻量语言模型整理
                 var final = raw
                 do {
                     final = try await client.chat(model: llmModel, system: system, user: user)
-                    LastRequestLog.shared.response = final
+                    if debug { LastRequestLog.shared.response = final }
                     if final.isEmpty { final = raw }
                 } catch {
                     // 只有普通听写且无选中文字时才可安全降级为原始转录;

@@ -78,8 +78,10 @@ struct SettingsRootView: View {
     @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
+        // 「请求」是调试功能,Debug 关闭时从侧边栏隐藏;若当前正停在请求页则退回通用页
+        let tabs = SettingsWindowController.Tab.allCases.filter { $0 != .request || settings.debugMode }
         HStack(spacing: 0) {
-            sidebar
+            sidebar(tabs)
             Divider()
             Group {
                 switch nav.tab {
@@ -95,9 +97,12 @@ struct SettingsRootView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(width: 720, height: 520)
+        .onChange(of: settings.debugMode) { debug in
+            if !debug && nav.tab == .request { nav.tab = .general }
+        }
     }
 
-    private var sidebar: some View {
+    private func sidebar(_ tabs: [SettingsWindowController.Tab]) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             // 给交通灯留位
             Spacer().frame(height: 40)
@@ -112,7 +117,7 @@ struct SettingsRootView: View {
             .frame(maxWidth: .infinity)
             .padding(.bottom, 16)
 
-            ForEach(SettingsWindowController.Tab.allCases, id: \.self) { tab in
+            ForEach(tabs, id: \.self) { tab in
                 SidebarItem(tab: tab, selected: nav.tab == tab) {
                     nav.tab = tab
                 }
