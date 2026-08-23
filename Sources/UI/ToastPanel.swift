@@ -35,7 +35,12 @@ enum ToastPanel {
         let frame = screen.visibleFrame
         newPanel.setFrameOrigin(CGPoint(x: frame.midX - host.fittingSize.width / 2,
                                         y: frame.minY + 120))
+        newPanel.alphaValue = 0
         newPanel.orderFrontRegardless()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.15
+            newPanel.animator().alphaValue = 1
+        }
         panel = newPanel
 
         let work = DispatchWorkItem { hide() }
@@ -46,8 +51,14 @@ enum ToastPanel {
     static func hide() {
         dismissWork?.cancel()
         dismissWork = nil
-        panel?.orderOut(nil)
+        guard let current = panel else { return }
         panel = nil
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            current.animator().alphaValue = 0
+        }, completionHandler: {
+            current.orderOut(nil)
+        })
     }
 }
 
@@ -58,17 +69,33 @@ private struct ToastView: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Text(message).font(.system(size: 12))
+            Text(message)
+                .font(.system(size: 12, weight: .medium))
+                .foregroundStyle(.white.opacity(0.88))
             if let actionTitle {
-                Button(actionTitle, action: onAction)
-                    .buttonStyle(.link)
-                    .font(.system(size: 12))
+                Button(action: onAction) {
+                    Text(actionTitle)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                }
+                .buttonStyle(.plain)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .overlay(Capsule().strokeBorder(.separator.opacity(0.5)))
+        .padding(.horizontal, 15)
+        .padding(.vertical, 9)
+        .background {
+            ZStack {
+                Capsule().fill(.ultraThinMaterial)
+                Capsule().fill(Color.black.opacity(0.45))
+            }
+        }
+        .overlay {
+            Capsule().strokeBorder(
+                LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.06)],
+                               startPoint: .top, endPoint: .bottom),
+                lineWidth: 1)
+        }
+        .environment(\.colorScheme, .dark)
         .padding(4)
     }
 }

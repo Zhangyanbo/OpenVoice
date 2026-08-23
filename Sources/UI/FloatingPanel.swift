@@ -11,9 +11,19 @@ final class PanelModel: ObservableObject {
     }
 
     @Published var phase: Phase = .listening
-    @Published var level: Float = 0
+    /// 最近若干个音量采样(0...1),驱动流动的波形
+    @Published var levels: [Float] = Array(repeating: 0, count: 5)
     /// 非空表示翻译模式:(当前目标语言, 可选语言列表)
     @Published var translation: (current: String, options: [String])?
+
+    func pushLevel(_ level: Float) {
+        levels.removeFirst()
+        levels.append(level)
+    }
+
+    func resetLevels() {
+        levels = Array(repeating: 0, count: levels.count)
+    }
 
     var onCancel: (() -> Void)?
     var onRetry: (() -> Void)?
@@ -52,7 +62,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     func showListening(translation: (String, [String])?) {
         model.phase = .listening
-        model.level = 0
+        model.resetLevels()
         model.translation = translation.map { (current: $0.0, options: $0.1) }
         show()
     }
@@ -68,11 +78,18 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     }
 
     func updateLevel(_ level: Float) {
-        model.level = level
+        model.pushLevel(level)
     }
 
     func hide() {
-        panel?.orderOut(nil)
+        guard let panel, panel.isVisible else { return }
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.18
+            panel.animator().alphaValue = 0
+        }, completionHandler: {
+            panel.orderOut(nil)
+            panel.alphaValue = 1
+        })
     }
 
     private func show() {
@@ -83,7 +100,17 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
             panel.setContentSize(size)
         }
         place(panel)
-        panel.orderFrontRegardless()
+        if !panel.isVisible {
+            panel.alphaValue = 0
+            panel.orderFrontRegardless()
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.15
+                panel.animator().alphaValue = 1
+            }
+        } else {
+            panel.alphaValue = 1
+            panel.orderFrontRegardless()
+        }
     }
 
     private func ensurePanel() -> NSPanel {
@@ -165,6 +192,10 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 }
 
 // MARK: - SwiftUI 视图
+//
+// 视觉语言:深色磨砂玻璃胶囊(类似系统听写浮层)。
+// 尺寸保持紧凑,不随状态膨胀;现代感来自材质、微动效与克制的层次,
+// 而不是体积和高饱和颜色。
 
 struct RecordingBarView: View {
     @ObservedObject var model: PanelModel
@@ -173,30 +204,54 @@ struct RecordingBarView: View {
         Group {
             switch model.phase {
             case .listening: listening
-            case .transcribing:
-                Text("正在转录…")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.primary)
+            case .transcribing: transcribing
             case .error(let message): errorView(message)
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
-        .frame(minWidth: 200)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(.separator.opacity(0.5)))
+        .background {
+            ZStack {
+                RoundedRectangle(cornerRadius: 21, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 21, style: .continuous)
+                    .fill(Color.black.opacity(0.45))
+            }
+        }
+        .overlay {
+            // 上亮下暗的一像素描边,营造玻璃边缘
+            RoundedRectangle(cornerRadius: 21, style: .continuous)
+                .strokeBorder(
+                    LinearGradient(colors: [.white.opacity(0.22), .white.opacity(0.06)],
+                                   startPoint: .top, endPoint: .bottom),
+                    lineWidth: 1)
+        }
+        .environment(\.colorScheme, .dark)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.18), value: model.phaseKey)
     }
 
     private var listening: some View {
         HStack(spacing: 10) {
-            Circle().fill(.red).frame(width: 8, height: 8)
-            LevelMeter(level: model.level)
+            PulsingDot()
+            WaveformView(levels: model.levels)
             Text("正在聆听")
-                .font(.system(size: 13))
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
             if model.translation != nil {
                 languageMenu
             }
+        }
+    }
+
+    private var transcribing: some View {
+        HStack(spacing: 9) {
+            ProgressView()
+                .controlSize(.small)
+                .tint(.white.opacity(0.8))
+            Text("正在转录…")
+                .font(.system(size: 12.5, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
         }
     }
 
@@ -209,18 +264,27 @@ struct RecordingBarView: View {
                 }
             }
         } label: {
-            Text("\(model.translation?.current ?? "") ▾")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 3) {
+                Text(model.translation?.current ?? "")
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 8, weight: .semibold))
+            }
+            .font(.system(size: 11.5, weight: .medium))
+            .foregroundStyle(.white.opacity(0.6))
         }
         .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
         .fixedSize()
     }
 
     private func errorView(_ message: String) -> some View {
         HStack(alignment: .center, spacing: 12) {
+            Image(systemName: "exclamationmark.circle.fill")
+                .font(.system(size: 13))
+                .foregroundStyle(.orange.opacity(0.9))
             Text(message)
                 .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.85))
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 340, alignment: .leading)
@@ -234,27 +298,52 @@ struct RecordingBarView: View {
     }
 }
 
-/// 简单的音量柱动画
-struct LevelMeter: View {
-    var level: Float
-    private let barCount = 5
+extension PanelModel {
+    /// phase 不是 Equatable,给动画一个可比较的 key
+    var phaseKey: Int {
+        switch phase {
+        case .listening: return 0
+        case .transcribing: return 1
+        case .error: return 2
+        }
+    }
+}
+
+/// 呼吸的录音点
+private struct PulsingDot: View {
+    @State private var pulsing = false
 
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<barCount, id: \.self) { index in
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(.tint)
-                    .frame(width: 3, height: height(for: index))
+        Circle()
+            .fill(Color(red: 1.0, green: 0.29, blue: 0.26))
+            .frame(width: 7, height: 7)
+            .shadow(color: Color(red: 1.0, green: 0.29, blue: 0.26).opacity(pulsing ? 0.7 : 0.2), radius: pulsing ? 5 : 2)
+            .opacity(pulsing ? 1.0 : 0.55)
+            .onAppear {
+                withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
+                    pulsing = true
+                }
+            }
+    }
+}
+
+/// 随音量流动的波形:最近 N 个采样从右向左滑过
+struct WaveformView: View {
+    var levels: [Float]
+
+    var body: some View {
+        HStack(spacing: 2.5) {
+            ForEach(Array(levels.enumerated()), id: \.offset) { _, level in
+                Capsule()
+                    .fill(.white.opacity(0.85))
+                    .frame(width: 2.5, height: height(for: level))
             }
         }
         .frame(height: 16)
-        .animation(.easeOut(duration: 0.1), value: level)
+        .animation(.easeOut(duration: 0.12), value: levels)
     }
 
-    private func height(for index: Int) -> CGFloat {
-        // 中间的柱子对音量更敏感,形成 ▂▅▇▅▂ 的波形感
-        let weights: [Float] = [0.5, 0.8, 1.0, 0.8, 0.5]
-        let h = 4 + CGFloat(level * weights[index]) * 12
-        return min(16, h)
+    private func height(for level: Float) -> CGFloat {
+        3 + CGFloat(min(1, level)) * 13
     }
 }
