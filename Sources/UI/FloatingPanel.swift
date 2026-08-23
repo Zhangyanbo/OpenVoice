@@ -356,12 +356,13 @@ private struct PillSizeKey: PreferenceKey {
 /// 呼吸的录音点
 private struct PulsingDot: View {
     @State private var pulsing = false
+    private static let dotColor = Color(red: 0.24, green: 0.84, blue: 0.42)
 
     var body: some View {
         Circle()
-            .fill(Color(red: 1.0, green: 0.29, blue: 0.26))
+            .fill(Self.dotColor)
             .frame(width: 7, height: 7)
-            .shadow(color: Color(red: 1.0, green: 0.29, blue: 0.26).opacity(pulsing ? 0.7 : 0.2), radius: pulsing ? 5 : 2)
+            .shadow(color: Self.dotColor.opacity(pulsing ? 0.7 : 0.2), radius: pulsing ? 5 : 2)
             .opacity(pulsing ? 1.0 : 0.55)
             .onAppear {
                 withAnimation(.easeInOut(duration: 1.0).repeatForever(autoreverses: true)) {
