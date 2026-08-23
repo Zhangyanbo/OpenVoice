@@ -1,0 +1,14 @@
+# Xcode 工程由 xcodegen 从 project.yml 生成,不入库
+*.xcodeproj
+
+# 构建产物
+build/
+DerivedData/
+.build/
+
+# Xcode 用户状态
+xcuserdata/
+*.xcuserstate
+
+# macOS
+.DS_Store
