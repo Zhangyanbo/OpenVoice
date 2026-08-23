@@ -62,6 +62,9 @@ private struct OnboardingView: View {
     typealias Step = OnboardingStep
 
     @State private var step: Step
+    /// 钥匙串中已有可用的 Key(读取动作本身会在需要时触发系统确认框)
+    @State private var keySaved = false
+    @State private var replacingKey = false
 
     init(initialStep: OnboardingStep, standalone: Bool,
          onAccessibilityGranted: @escaping () -> Void, onFinish: @escaping () -> Void) {
@@ -116,20 +119,37 @@ private struct OnboardingView: View {
 
         case .apiKey:
             VStack(alignment: .leading, spacing: 12) {
-                Text("填写 OpenAI API Key").font(.title2.bold())
-                Text("在 platform.openai.com 创建。Key 只保存在 macOS Keychain 中,不写入配置文件,不进入日志。")
+                Text("设置 OpenAI API Key").font(.title2.bold())
+                Text("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中,不写入配置文件,不进入日志。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
-                SecureField("sk-…", text: $keyInput)
-                    .textFieldStyle(.roundedBorder)
-                HStack {
-                    Button(validating ? "验证中…" : "验证并保存") { validate() }
-                        .disabled(keyInput.isEmpty || validating)
-                    if !keyStatus.isEmpty {
-                        Text(keyStatus).font(.caption).foregroundStyle(.secondary)
+                if keySaved && !replacingKey {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                        Text("已从钥匙串读取到保存的 API Key")
+                        Spacer()
+                        Button("更换…") { replacingKey = true }
+                    }
+                    .padding(12)
+                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+                } else {
+                    SecureField("sk-…", text: $keyInput)
+                        .textFieldStyle(.roundedBorder)
+                    HStack {
+                        Button(validating ? "验证中…" : "验证并保存") { validate() }
+                            .disabled(keyInput.isEmpty || validating)
+                        if !keyStatus.isEmpty {
+                            Text(keyStatus).font(.caption).foregroundStyle(.secondary)
+                        }
                     }
                 }
+                Text("如果系统弹出「访问钥匙串」的确认框,请选择「始终允许」,之后不会再询问。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
+            // 主动读取一次钥匙串:若需要系统确认,就让确认框弹在
+            // 这个有上下文说明的页面里,而不是使用中突然出现
+            .onAppear { keySaved = KeychainStore.loadAPIKey() != nil }
 
         case .microphone:
             permissionStep(title: "授予麦克风权限",
@@ -224,7 +244,7 @@ private struct OnboardingView: View {
     private var canContinue: Bool {
         switch step {
         case .welcome: return true
-        case .apiKey: return KeychainStore.loadAPIKey() != nil
+        case .apiKey: return keySaved
         case .microphone: return micGranted
         case .accessibility: return axGranted
         case .tryIt: return true
@@ -242,6 +262,9 @@ private struct OnboardingView: View {
                 await MainActor.run {
                     validating = false
                     keyStatus = "✓ 已保存"
+                    keySaved = true
+                    replacingKey = false
+                    keyInput = ""
                 }
             } catch {
                 await MainActor.run {
