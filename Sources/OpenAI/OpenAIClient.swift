@@ -77,8 +77,10 @@ struct OpenAIClient {
         return text.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    // MARK: - Chat
+    // MARK: - Chat(结构化输出)
 
+    /// 整理/翻译请求。用 Structured Outputs 强制模型只输出 {"text": "..."},
+    /// 从 schema 层面保证不会混入解释、引号等转录内容之外的东西。
     func chat(model: String, system: String, user: String) async throws -> String {
         var request = URLRequest(url: base.appendingPathComponent("chat/completions"))
         request.httpMethod = "POST"
@@ -90,6 +92,24 @@ struct OpenAIClient {
                 ["role": "system", "content": system],
                 ["role": "user", "content": user],
             ],
+            "response_format": [
+                "type": "json_schema",
+                "json_schema": [
+                    "name": "dictation_output",
+                    "strict": true,
+                    "schema": [
+                        "type": "object",
+                        "properties": [
+                            "text": [
+                                "type": "string",
+                                "description": "整理后用于直接插入光标位置的最终文本",
+                            ],
+                        ],
+                        "required": ["text"],
+                        "additionalProperties": false,
+                    ],
+                ],
+            ],
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
@@ -99,6 +119,14 @@ struct OpenAIClient {
               let choices = json["choices"] as? [[String: Any]],
               let message = choices.first?["message"] as? [String: Any],
               let content = message["content"] as? String else { throw ClientError.badResponse }
+
+        // 从 JSON 中取出 text 字段;万一模型/网关不支持 json_schema 而返回了裸文本,
+        // 降级为原样使用,不让一次转录白白失败
+        if let contentData = content.data(using: .utf8),
+           let object = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
+           let text = object["text"] as? String {
+            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
