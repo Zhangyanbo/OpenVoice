@@ -78,16 +78,7 @@ private struct OnboardingView: View {
         switch step {
         case .welcome:
             VStack(spacing: 16) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 30, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 72, height: 72)
-                    .background(
-                        LinearGradient(colors: [Color(red: 0.35, green: 0.55, blue: 0.95),
-                                                Color(red: 0.25, green: 0.4, blue: 0.85)],
-                                       startPoint: .top, endPoint: .bottom),
-                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                    .shadow(color: Color(red: 0.3, green: 0.45, blue: 0.9).opacity(0.35), radius: 14, y: 6)
+                AppMark(size: 72)
                     .padding(.top, 12)
                 Text("OpenVoiceInput").font(.system(size: 24, weight: .bold))
                 Text("把光标放到任意地方,按 Fn 说话,再按 Fn,\n文字直接出现。")

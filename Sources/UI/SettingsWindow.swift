@@ -93,15 +93,7 @@ struct SettingsRootView: View {
             Spacer().frame(height: 40)
 
             HStack(spacing: 8) {
-                Image(systemName: "mic.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(.white)
-                    .frame(width: 24, height: 24)
-                    .background(
-                        LinearGradient(colors: [Color(red: 0.35, green: 0.55, blue: 0.95),
-                                                Color(red: 0.25, green: 0.4, blue: 0.85)],
-                                       startPoint: .top, endPoint: .bottom),
-                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                AppMark(size: 24)
                 Text("OpenVoiceInput")
                     .font(.system(size: 13, weight: .semibold))
             }

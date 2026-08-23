@@ -9,8 +9,31 @@ targets:
     platform: macOS
     sources:
       - Sources
-      - path: Resources
-        buildPhase: resources
+    postBuildScripts:
+      - name: Regenerate app icons
+        basedOnDependencyAnalysis: false
+        script: |
+          set -e
+          APP_RES="$BUILT_PRODUCTS_DIR/$UNLOCALIZED_RESOURCES_FOLDER_PATH"
+          mkdir -p "$APP_RES"
+          # 每次构建都从设计稿重新生成 .icns(设计稿可能随时被编辑)
+          SRC="$SRCROOT/icon/icon_design.png"
+          if [ -f "$SRC" ]; then
+            ICONSET="$TEMP_DIR/AppIcon.iconset"
+            rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+            for s in 16 32 128 256 512; do
+              sips -z $s $s "$SRC" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
+              d=$((s*2))
+              sips -z $d $d "$SRC" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
+            done
+            iconutil -c icns "$ICONSET" -o "$APP_RES/AppIcon.icns"
+          fi
+          # 透明底图标(设置/引导页内使用),存在才拷贝
+          for f in icon_transparent_white icon_transparent_black; do
+            if [ -f "$SRCROOT/icon/$f.png" ]; then
+              cp "$SRCROOT/icon/$f.png" "$APP_RES/$f.png"
+            fi
+          done
     info:
       path: Support/Info.plist
       properties:
@@ -35,4 +58,6 @@ targets:
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES
         GENERATE_INFOPLIST_FILE: NO
+        # 图标生成脚本要读 icon/ 写入 app 包,不能开脚本沙箱
+        ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_STRICT_CONCURRENCY: minimal
