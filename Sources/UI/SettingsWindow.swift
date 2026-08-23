@@ -2,14 +2,39 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// 设置窗口。三个标签:通用(含快捷键/语言/上下文/OpenAI 等常用项)、术语表、历史。
+/// 设置窗口:左侧图标侧边栏 + 右侧卡片式分区。
+/// 视觉语言与悬浮条一致:克制、现代、低噪。
 final class SettingsWindowController {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
     private let nav = SettingsNav()
 
-    enum Tab: String {
+    enum Tab: String, CaseIterable {
         case general, glossary, history
+
+        var title: String {
+            switch self {
+            case .general: return "通用"
+            case .glossary: return "术语表"
+            case .history: return "历史"
+            }
+        }
+
+        var icon: String {
+            switch self {
+            case .general: return "gearshape.fill"
+            case .glossary: return "character.book.closed.fill"
+            case .history: return "clock.arrow.circlepath"
+            }
+        }
+
+        var iconColor: Color {
+            switch self {
+            case .general: return Color(red: 0.42, green: 0.48, blue: 0.56)
+            case .glossary: return Color(red: 0.95, green: 0.61, blue: 0.19)
+            case .history: return Color(red: 0.56, green: 0.45, blue: 0.86)
+            }
+        }
     }
 
     func show(tab: Tab? = nil) {
@@ -18,8 +43,10 @@ final class SettingsWindowController {
             let hosting = NSHostingController(rootView: content)
             let window = NSWindow(contentViewController: hosting)
             window.title = "OpenVoiceInput 设置"
-            window.styleMask = [.titled, .closable, .miniaturizable]
-            window.setContentSize(NSSize(width: 600, height: 520))
+            window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.setContentSize(NSSize(width: 720, height: 520))
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window
@@ -34,76 +61,260 @@ final class SettingsNav: ObservableObject {
     @Published var tab: SettingsWindowController.Tab = .general
 }
 
+// MARK: - 根布局:侧边栏 + 内容
+
 struct SettingsRootView: View {
     @ObservedObject var nav: SettingsNav
 
     var body: some View {
-        TabView(selection: $nav.tab) {
-            GeneralTab()
-                .tabItem { Label("通用", systemImage: "gearshape") }
-                .tag(SettingsWindowController.Tab.general)
-            GlossaryTab()
-                .tabItem { Label("术语表", systemImage: "character.book.closed") }
-                .tag(SettingsWindowController.Tab.glossary)
-            HistoryTab()
-                .tabItem { Label("历史", systemImage: "clock.arrow.circlepath") }
-                .tag(SettingsWindowController.Tab.history)
+        HStack(spacing: 0) {
+            sidebar
+            Divider()
+            Group {
+                switch nav.tab {
+                case .general: GeneralPane()
+                case .glossary: GlossaryPane()
+                case .history: HistoryPane()
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(width: 600, height: 520)
+        .frame(width: 720, height: 520)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            // 给交通灯留位
+            Spacer().frame(height: 40)
+
+            HStack(spacing: 8) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 24, height: 24)
+                    .background(
+                        LinearGradient(colors: [Color(red: 0.35, green: 0.55, blue: 0.95),
+                                                Color(red: 0.25, green: 0.4, blue: 0.85)],
+                                       startPoint: .top, endPoint: .bottom),
+                        in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                Text("OpenVoiceInput")
+                    .font(.system(size: 13, weight: .semibold))
+            }
+            .padding(.horizontal, 10)
+            .padding(.bottom, 14)
+
+            ForEach(SettingsWindowController.Tab.allCases, id: \.self) { tab in
+                SidebarItem(tab: tab, selected: nav.tab == tab) {
+                    nav.tab = tab
+                }
+            }
+            Spacer()
+        }
+        .padding(10)
+        .frame(width: 178)
+        .background(.regularMaterial)
     }
 }
 
-// MARK: - 通用(常用设置集中在一页,分区滚动)
+private struct SidebarItem: View {
+    let tab: SettingsWindowController.Tab
+    let selected: Bool
+    let action: () -> Void
+    @State private var hovering = false
 
-private struct GeneralTab: View {
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 22, height: 22)
+                    .background(tab.iconColor.gradient, in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                Text(tab.title)
+                    .font(.system(size: 13))
+                    .foregroundStyle(.primary)
+                Spacer()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(
+                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                    .fill(selected ? Color.primary.opacity(0.09)
+                          : hovering ? Color.primary.opacity(0.04) : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+    }
+}
+
+// MARK: - 通用组件:卡片与行
+
+/// 分区卡片:标题 + 圆角容器,行之间自动加内嵌分隔线
+struct SettingsCard<Content: View>: View {
+    var title: String?
+    var footer: String?
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if let title {
+                Text(title)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                    .padding(.leading, 10)
+            }
+            VStack(spacing: 0) { content }
+                .background(Color(nsColor: .controlBackgroundColor))
+                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.07), lineWidth: 1))
+            if let footer {
+                Text(footer)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 10)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// 卡片内的一行:左侧标题(可带副标题),右侧控件
+struct SettingsRow<Trailing: View>: View {
+    let title: String
+    var subtitle: String?
+    @ViewBuilder var trailing: Trailing
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 13))
+                if let subtitle {
+                    Text(subtitle)
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            Spacer(minLength: 12)
+            trailing
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+    }
+}
+
+struct CardDivider: View {
+    var body: some View {
+        Divider().padding(.leading, 12).opacity(0.6)
+    }
+}
+
+/// 统一的内容滚动容器
+private struct PaneScroll<Content: View>: View {
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 18) {
+                Text(title)
+                    .font(.system(size: 20, weight: .bold))
+                    .padding(.top, 34)
+                content
+            }
+            .padding(.horizontal, 24)
+            .padding(.bottom, 24)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+// MARK: - 通用
+
+private struct GeneralPane: View {
     @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
-        Form {
-            Section("通用") {
-                Toggle("登录时启动", isOn: $settings.launchAtLogin)
-                Toggle("播放提示音", isOn: $settings.playSound)
-                Toggle("显示语音悬浮条", isOn: $settings.showPanel)
-                Button("重置悬浮条位置") { settings.clearPanelOrigin() }
-            }
-
-            Section("快捷键") {
-                Picker("语音输入", selection: $settings.primaryKey) {
-                    ForEach(SettingsStore.TriggerKey.allCases.filter { $0 != .none }) { key in
-                        Text(key.displayName).tag(key)
+        PaneScroll(title: "通用") {
+            SettingsCard {
+                SettingsRow(title: "登录时启动") {
+                    Toggle("", isOn: $settings.launchAtLogin)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
+                CardDivider()
+                SettingsRow(title: "播放提示音") {
+                    Toggle("", isOn: $settings.playSound)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
+                CardDivider()
+                SettingsRow(title: "显示语音悬浮条", subtitle: "悬浮条可拖动,位置会被记住") {
+                    HStack(spacing: 10) {
+                        Button("重置位置") { settings.clearPanelOrigin() }
+                            .controlSize(.small)
+                        Toggle("", isOn: $settings.showPanel)
+                            .toggleStyle(.switch).controlSize(.small).labelsHidden()
                     }
                 }
-                Picker("备用快捷键", selection: $settings.altKey) {
-                    ForEach(SettingsStore.TriggerKey.allCases) { key in
-                        Text(key.displayName).tag(key)
+            }
+
+            SettingsCard(title: "快捷键",
+                         footer: "若使用 Fn,请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」,避免与系统听写冲突。") {
+                SettingsRow(title: "语音输入") {
+                    Picker("", selection: $settings.primaryKey) {
+                        ForEach(SettingsStore.TriggerKey.allCases.filter { $0 != .none }) { key in
+                            Text(key.displayName).tag(key)
+                        }
                     }
+                    .labelsHidden().fixedSize()
                 }
-                LabeledContent("翻译", value: "\(settings.primaryKey.displayName) + 左 Shift")
-                Text("若使用 Fn,请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」,避免与系统听写冲突。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                CardDivider()
+                SettingsRow(title: "备用快捷键") {
+                    Picker("", selection: $settings.altKey) {
+                        ForEach(SettingsStore.TriggerKey.allCases) { key in
+                            Text(key.displayName).tag(key)
+                        }
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                CardDivider()
+                SettingsRow(title: "翻译") {
+                    Text("\(settings.primaryKey.displayName) + 左 Shift")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
             }
 
-            LanguageSection()
+            LanguageCard()
 
-            Section("上下文") {
-                Toggle("使用当前 App 上下文", isOn: $settings.useAppContext)
-                Toggle("读取光标附近文字", isOn: $settings.readNearbyText)
-                Toggle("读取选中文字", isOn: $settings.readSelectedText)
-                Text("上下文只在你主动开始语音输入时通过辅助功能 API 读取。本应用不截图、不 OCR、不申请屏幕录制权限。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            SettingsCard(title: "上下文",
+                         footer: "上下文只在你主动开始语音输入时通过辅助功能 API 读取。本应用不截图、不 OCR、不申请屏幕录制权限。") {
+                SettingsRow(title: "使用当前 App 上下文") {
+                    Toggle("", isOn: $settings.useAppContext)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
+                CardDivider()
+                SettingsRow(title: "读取光标附近文字") {
+                    Toggle("", isOn: $settings.readNearbyText)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
+                CardDivider()
+                SettingsRow(title: "读取选中文字") {
+                    Toggle("", isOn: $settings.readSelectedText)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
             }
 
-            OpenAISection()
+            OpenAICard()
         }
-        .formStyle(.grouped)
     }
 }
 
-// MARK: - 语言分区
+// MARK: - 语言卡片
 
-private struct LanguageSection: View {
+private struct LanguageCard: View {
     @ObservedObject var settings = SettingsStore.shared
     @State private var newLanguage = ""
 
@@ -113,41 +324,62 @@ private struct LanguageSection: View {
     ]
 
     var body: some View {
-        Section("语言") {
-            Picker("语音识别语言", selection: $settings.recognitionLanguage) {
-                ForEach(recognitionOptions, id: \.0) { code, name in
-                    Text(name).tag(code)
+        SettingsCard(title: "语言") {
+            SettingsRow(title: "语音识别语言") {
+                Picker("", selection: $settings.recognitionLanguage) {
+                    ForEach(recognitionOptions, id: \.0) { code, name in
+                        Text(name).tag(code)
+                    }
                 }
+                .labelsHidden().fixedSize()
             }
-
+            CardDivider()
             ForEach(Array(settings.targetLanguages.enumerated()), id: \.offset) { index, language in
-                HStack {
-                    Text(index == 0 ? "翻译目标语言(默认):\(language)" : "候选:\(language)")
-                    Spacer()
-                    if index > 0 {
-                        Button("设为默认") {
+                SettingsRow(title: index == 0 ? "翻译目标语言" : " ",
+                            subtitle: nil) {
+                    HStack(spacing: 8) {
+                        if index == 0 {
+                            Text(language).font(.system(size: 13))
+                            Text("默认")
+                                .font(.system(size: 10, weight: .semibold))
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color.accentColor.opacity(0.15), in: Capsule())
+                                .foregroundStyle(Color.accentColor)
+                        } else {
+                            Text(language).font(.system(size: 13)).foregroundStyle(.secondary)
+                            Button("设为默认") {
+                                var list = settings.targetLanguages
+                                list.remove(at: index)
+                                list.insert(language, at: 0)
+                                settings.targetLanguages = list
+                            }
+                            .buttonStyle(.link).font(.system(size: 11))
+                        }
+                        Button {
                             var list = settings.targetLanguages
                             list.remove(at: index)
-                            list.insert(language, at: 0)
                             settings.targetLanguages = list
+                        } label: {
+                            Image(systemName: "minus.circle.fill")
+                                .foregroundStyle(.tertiary)
                         }
-                        .buttonStyle(.link)
+                        .buttonStyle(.plain)
+                        .disabled(settings.targetLanguages.count <= 1)
                     }
-                    Button(role: .destructive) {
-                        var list = settings.targetLanguages
-                        list.remove(at: index)
-                        settings.targetLanguages = list
-                    } label: { Image(systemName: "minus.circle") }
-                    .buttonStyle(.plain)
-                    .disabled(settings.targetLanguages.count <= 1)
                 }
             }
-            HStack {
+            CardDivider()
+            HStack(spacing: 8) {
                 TextField("添加翻译语言,如:日语", text: $newLanguage)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 13))
                     .onSubmit(addLanguage)
                 Button("添加", action: addLanguage)
+                    .controlSize(.small)
                     .disabled(newLanguage.trimmingCharacters(in: .whitespaces).isEmpty)
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
         }
     }
 
@@ -159,9 +391,9 @@ private struct LanguageSection: View {
     }
 }
 
-// MARK: - OpenAI 分区
+// MARK: - OpenAI 卡片
 
-private struct OpenAISection: View {
+private struct OpenAICard: View {
     @ObservedObject var settings = SettingsStore.shared
     @State private var editingKey = false
     @State private var keyInput = ""
@@ -172,40 +404,56 @@ private struct OpenAISection: View {
     private let llmOptions = ["", "gpt-5.6-luna", "gpt-5-nano", "gpt-4.1-nano", "gpt-5.4-mini"]
 
     var body: some View {
-        Section("OpenAI") {
+        SettingsCard(title: "OpenAI", footer: "默认模型即当前推荐,普通使用无需修改。API Key 只保存在 macOS Keychain。") {
             if editingKey {
-                SecureField("API Key(sk-…)", text: $keyInput)
-                HStack {
-                    Button("保存并验证") { saveKey() }
-                        .disabled(keyInput.isEmpty || validating)
-                    Button("取消") {
-                        editingKey = false
-                        keyInput = ""
-                        status = ""
-                    }
-                    if validating { ProgressView().controlSize(.small) }
-                }
-            } else {
-                LabeledContent("API Key") {
+                VStack(alignment: .leading, spacing: 8) {
+                    SecureField("API Key(sk-…)", text: $keyInput)
+                        .textFieldStyle(.roundedBorder)
                     HStack {
+                        Button("保存并验证") { saveKey() }
+                            .controlSize(.small)
+                            .disabled(keyInput.isEmpty || validating)
+                        Button("取消") {
+                            editingKey = false; keyInput = ""; status = ""
+                        }
+                        .controlSize(.small)
+                        if validating { ProgressView().controlSize(.small) }
+                        if !status.isEmpty {
+                            Text(status).font(.system(size: 11)).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+            } else {
+                SettingsRow(title: "API Key",
+                            subtitle: status.isEmpty ? nil : status) {
+                    HStack(spacing: 10) {
                         Text(KeychainStore.loadAPIKey() != nil ? "•••••••••••" : "未设置")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(.secondary)
                         Button("修改") { editingKey = true }
+                            .controlSize(.small)
                     }
                 }
             }
-            if !status.isEmpty {
-                Text(status).font(.caption).foregroundStyle(.secondary)
-            }
-
-            Picker("语音识别模型", selection: $settings.transcribeModel) {
-                ForEach(transcribeOptions, id: \.self) { model in
-                    Text(model.isEmpty ? "默认(\(SettingsStore.defaultTranscribeModel))" : model).tag(model)
+            CardDivider()
+            SettingsRow(title: "语音识别模型") {
+                Picker("", selection: $settings.transcribeModel) {
+                    ForEach(transcribeOptions, id: \.self) { model in
+                        Text(model.isEmpty ? "默认(\(SettingsStore.defaultTranscribeModel))" : model).tag(model)
+                    }
                 }
+                .labelsHidden().fixedSize()
             }
-            Picker("语言模型", selection: $settings.llmModel) {
-                ForEach(llmOptions, id: \.self) { model in
-                    Text(model.isEmpty ? "默认(\(SettingsStore.defaultLLMModel))" : model).tag(model)
+            CardDivider()
+            SettingsRow(title: "语言模型") {
+                Picker("", selection: $settings.llmModel) {
+                    ForEach(llmOptions, id: \.self) { model in
+                        Text(model.isEmpty ? "默认(\(SettingsStore.defaultLLMModel))" : model).tag(model)
+                    }
                 }
+                .labelsHidden().fixedSize()
             }
         }
     }
@@ -219,15 +467,13 @@ private struct OpenAISection: View {
                 try await OpenAIClient(apiKey: key).validateKey()
                 _ = KeychainStore.saveAPIKey(key)
                 await MainActor.run {
-                    validating = false
-                    editingKey = false
-                    keyInput = ""
-                    status = "已保存到 Keychain。"
+                    validating = false; editingKey = false; keyInput = ""
+                    status = "已保存到 Keychain"
                 }
             } catch {
                 await MainActor.run {
                     validating = false
-                    status = "OpenAI 无法验证这个 API Key。"
+                    status = "OpenAI 无法验证这个 API Key"
                 }
             }
         }
@@ -236,50 +482,82 @@ private struct OpenAISection: View {
 
 // MARK: - 术语表
 
-private struct GlossaryTab: View {
+private struct GlossaryPane: View {
     @ObservedObject var glossary = GlossaryStore.shared
     @ObservedObject var settings = SettingsStore.shared
     @State private var query = ""
     @State private var newTerm = ""
 
     var body: some View {
-        VStack(spacing: 8) {
-            HStack {
-                TextField("搜索", text: $query)
-                    .textFieldStyle(.roundedBorder)
+        VStack(alignment: .leading, spacing: 14) {
+            Text("术语表")
+                .font(.system(size: 20, weight: .bold))
+                .padding(.top, 34)
+
+            HStack(spacing: 8) {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.tertiary)
+                    TextField("搜索", text: $query)
+                        .textFieldStyle(.plain)
+                        .font(.system(size: 12.5))
+                }
+                .padding(.horizontal, 9)
+                .padding(.vertical, 6)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                 Button("导入…", action: importFile)
+                    .controlSize(.regular)
             }
 
-            List {
-                ForEach(glossary.search(query)) { term in
-                    HStack {
-                        Text(term.text)
-                        if term.source == "learned" {
-                            Text("已学习 ×\(term.confidence)")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
+            SettingsCard {
+                if glossary.search(query).isEmpty {
+                    VStack(spacing: 6) {
+                        Image(systemName: "character.book.closed")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.quaternary)
+                        Text(query.isEmpty ? "还没有术语。添加人名、项目名、常被识别错的词。" : "没有匹配的术语")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 40)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(Array(glossary.search(query).enumerated()), id: \.element.id) { index, term in
+                                if index > 0 { CardDivider() }
+                                GlossaryRow(term: term) { glossary.remove(term) }
+                            }
                         }
-                        Spacer()
-                        Button(role: .destructive) {
-                            glossary.remove(term)
-                        } label: { Image(systemName: "trash") }
-                        .buttonStyle(.plain)
                     }
                 }
             }
+            .frame(maxHeight: .infinity)
 
-            HStack {
+            HStack(spacing: 8) {
                 TextField("添加术语,如:MacroNet", text: $newTerm)
-                    .textFieldStyle(.roundedBorder)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 12.5))
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 6)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                     .onSubmit(add)
                 Button("添加", action: add)
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
-            Toggle("从修改中自动学习", isOn: $settings.autoLearn)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            Toggle("从修改中自动学习:语音输入后你立即手动纠正的词,会自动加入术语表", isOn: $settings.autoLearn)
+                .toggleStyle(.switch)
+                .controlSize(.small)
+                .font(.system(size: 12))
         }
-        .padding()
+        .padding(.horizontal, 24)
+        .padding(.bottom, 20)
     }
 
     private func add() {
@@ -298,9 +576,41 @@ private struct GlossaryTab: View {
     }
 }
 
+private struct GlossaryRow: View {
+    let term: GlossaryStore.Term
+    let onDelete: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(term.text).font(.system(size: 13))
+            if term.source == "learned" {
+                Text("已学习 ×\(term.confidence)")
+                    .font(.system(size: 10, weight: .medium))
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.purple.opacity(0.12), in: Capsule())
+                    .foregroundStyle(.purple)
+            }
+            Spacer()
+            if hovering {
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
+    }
+}
+
 // MARK: - 历史
 
-private struct HistoryTab: View {
+private struct HistoryPane: View {
     @ObservedObject var history = HistoryStore.shared
     @ObservedObject var settings = SettingsStore.shared
     @ObservedObject var log = LastRequestLog.shared
@@ -308,79 +618,134 @@ private struct HistoryTab: View {
     @State private var showDebug = false
 
     var body: some View {
-        VStack(spacing: 8) {
-            if history.entries.isEmpty {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("历史")
+                    .font(.system(size: 20, weight: .bold))
                 Spacer()
-                Text("还没有转录记录")
-                    .foregroundStyle(.secondary)
-                Spacer()
-            } else {
-                List {
-                    ForEach(history.entries) { entry in
-                        HStack(alignment: .top, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(entry.text)
-                                    .lineLimit(4)
-                                    .textSelection(.enabled)
-                                Text(subtitle(for: entry))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Button(copiedID == entry.id ? "已复制" : "复制") {
-                                NSPasteboard.general.clearContents()
-                                NSPasteboard.general.setString(entry.text, forType: .string)
-                                copiedID = entry.id
-                            }
-                            .controlSize(.small)
-                            Button(role: .destructive) {
-                                history.remove(entry)
-                            } label: { Image(systemName: "trash") }
-                            .buttonStyle(.plain)
-                        }
-                        .padding(.vertical, 2)
-                    }
-                }
-            }
-
-            HStack {
-                Toggle("保留转录历史", isOn: $settings.keepHistory)
-                Spacer()
-                Button("清空历史", role: .destructive) { history.clear() }
+                Toggle("保留历史", isOn: $settings.keepHistory)
+                    .toggleStyle(.switch).controlSize(.mini)
+                    .font(.system(size: 11))
+                Button("清空") { history.clear() }
+                    .controlSize(.small)
                     .disabled(history.entries.isEmpty)
             }
+            .padding(.top, 34)
 
-            DisclosureGroup("最近一次请求详情(排查用)", isExpanded: $showDebug) {
+            if history.entries.isEmpty {
+                SettingsCard {
+                    VStack(spacing: 6) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.quaternary)
+                        Text("还没有转录记录")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 60)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                SettingsCard {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(Array(history.entries.enumerated()), id: \.element.id) { index, entry in
+                                if index > 0 { CardDivider() }
+                                HistoryRow(entry: entry,
+                                           copied: copiedID == entry.id,
+                                           onCopy: {
+                                               NSPasteboard.general.clearContents()
+                                               NSPasteboard.general.setString(entry.text, forType: .string)
+                                               copiedID = entry.id
+                                           },
+                                           onDelete: { history.remove(entry) })
+                            }
+                        }
+                    }
+                }
+                .frame(maxHeight: .infinity)
+            }
+
+            DisclosureGroup(isExpanded: $showDebug) {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         debugRow("发送的上下文", log.contextSummary)
                         debugRow("术语提示", log.termHint.isEmpty ? "(无)" : log.termHint)
                         debugRow("文字插入", log.insertTrace.isEmpty ? "(无)" : log.insertTrace)
                         debugRow("错误", log.lastError ?? "(无)")
-                        Text("历史只保存在这台 Mac 上;除音频与上述上下文外,没有数据离开本机。")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
                 }
-                .frame(maxHeight: 140)
+                .frame(maxHeight: 130)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            } label: {
+                Text("最近一次请求详情(排查用)")
+                    .font(.system(size: 11.5))
+                    .foregroundStyle(.secondary)
             }
         }
-        .padding()
-    }
-
-    private func subtitle(for entry: HistoryStore.Entry) -> String {
-        var parts = [entry.date.formatted(date: .abbreviated, time: .shortened), entry.mode]
-        if let app = entry.appName { parts.append(app) }
-        return parts.joined(separator: " · ")
+        .padding(.horizontal, 24)
+        .padding(.bottom, 20)
     }
 
     private func debugRow(_ title: String, _ content: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.caption.bold())
+            Text(title).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.secondary)
             Text(content)
                 .font(.system(size: 11, design: .monospaced))
                 .textSelection(.enabled)
         }
+    }
+}
+
+private struct HistoryRow: View {
+    let entry: HistoryStore.Entry
+    let copied: Bool
+    let onCopy: () -> Void
+    let onDelete: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(entry.text)
+                    .font(.system(size: 12.5))
+                    .lineLimit(4)
+                    .textSelection(.enabled)
+                HStack(spacing: 6) {
+                    Text(entry.date.formatted(date: .abbreviated, time: .shortened))
+                    Text("·")
+                    Text(entry.mode)
+                    if let app = entry.appName {
+                        Text("·")
+                        Text(app)
+                    }
+                }
+                .font(.system(size: 10.5))
+                .foregroundStyle(.tertiary)
+            }
+            Spacer()
+            if hovering || copied {
+                HStack(spacing: 6) {
+                    Button(action: onCopy) {
+                        Label(copied ? "已复制" : "复制", systemImage: copied ? "checkmark" : "doc.on.doc")
+                            .font(.system(size: 11))
+                    }
+                    .controlSize(.small)
+                    Button(action: onDelete) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 9)
+        .contentShape(Rectangle())
+        .onHover { hovering = $0 }
     }
 }

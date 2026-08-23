@@ -26,8 +26,10 @@ final class OnboardingWindowController {
             let hosting = NSHostingController(rootView: view)
             let window = NSWindow(contentViewController: hosting)
             window.title = "欢迎使用 OpenVoiceInput"
-            window.styleMask = [.titled, .closable]
-            window.setContentSize(NSSize(width: 480, height: 400))
+            window.styleMask = [.titled, .closable, .fullSizeContentView]
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.setContentSize(NSSize(width: 480, height: 420))
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window
@@ -75,12 +77,24 @@ private struct OnboardingView: View {
     @ViewBuilder private var content: some View {
         switch step {
         case .welcome:
-            VStack(spacing: 12) {
-                Image(systemName: "mic.circle.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(.tint)
-                Text("OpenVoiceInput").font(.title.bold())
-                Text("把光标放到任意地方,按 Fn 说话,再按 Fn,文字直接出现。\n\n无账号、无服务器。你的 OpenAI API Key 保存在本机 Keychain,音频直接从这台 Mac 发送给 OpenAI。")
+            VStack(spacing: 16) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 30, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 72, height: 72)
+                    .background(
+                        LinearGradient(colors: [Color(red: 0.35, green: 0.55, blue: 0.95),
+                                                Color(red: 0.25, green: 0.4, blue: 0.85)],
+                                       startPoint: .top, endPoint: .bottom),
+                        in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .shadow(color: Color(red: 0.3, green: 0.45, blue: 0.9).opacity(0.35), radius: 14, y: 6)
+                    .padding(.top, 12)
+                Text("OpenVoiceInput").font(.system(size: 24, weight: .bold))
+                Text("把光标放到任意地方,按 Fn 说话,再按 Fn,\n文字直接出现。")
+                    .font(.system(size: 13))
+                    .multilineTextAlignment(.center)
+                Text("无账号、无服务器。你的 OpenAI API Key 保存在本机 Keychain,\n音频直接从这台 Mac 发送给 OpenAI。")
+                    .font(.system(size: 11.5))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             }
@@ -164,6 +178,15 @@ private struct OnboardingView: View {
                 Button("上一步") { step = Step(rawValue: step.rawValue - 1) ?? .welcome }
             }
             Spacer()
+            // 步骤指示点
+            HStack(spacing: 5) {
+                ForEach(Step.allCases, id: \.rawValue) { s in
+                    Circle()
+                        .fill(s == step ? Color.accentColor : Color.primary.opacity(0.15))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            Spacer()
             if step == .tryIt {
                 Button("完成") { onFinish() }
                     .buttonStyle(.borderedProminent)
@@ -173,6 +196,7 @@ private struct OnboardingView: View {
                     .disabled(!canContinue)
             }
         }
+        .animation(.easeInOut(duration: 0.15), value: step)
     }
 
     private var canContinue: Bool {
