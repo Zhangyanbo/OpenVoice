@@ -29,6 +29,8 @@ final class PanelModel: ObservableObject {
     var onRetry: (() -> Void)?
     var onDismissError: (() -> Void)?
     var onLanguageChange: ((String) -> Void)?
+    /// SwiftUI 布局完成后回报胶囊实际尺寸,窗口据此调整大小
+    var onSizeChange: ((CGSize) -> Void)?
 }
 
 /// 悬浮条窗口控制器(spec §4):
@@ -94,11 +96,6 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     private func show() {
         let panel = ensurePanel()
-        // 错误信息可能较长,面板随内容自适应
-        if let hostView {
-            let size = hostView.fittingSize
-            panel.setContentSize(size)
-        }
         place(panel)
         if !panel.isVisible {
             panel.alphaValue = 0
@@ -136,8 +133,25 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         panel.contentView = host
         hostView = host
 
+        // 尺寸以 SwiftUI 布局结果为准(布局是异步的,同步读 fittingSize 会拿到过时值)
+        model.onSizeChange = { [weak self] size in
+            self?.resizePanel(to: size)
+        }
+
         self.panel = panel
         return panel
+    }
+
+    /// 保持水平中心与底边不动,按内容实际尺寸调整窗口
+    private func resizePanel(to size: CGSize) {
+        guard let panel else { return }
+        let target = NSSize(width: ceil(size.width), height: ceil(size.height))
+        guard target.width > 1, target.height > 1,
+              abs(panel.frame.width - target.width) > 0.5 || abs(panel.frame.height - target.height) > 0.5 else { return }
+        let origin = CGPoint(x: panel.frame.midX - target.width / 2, y: panel.frame.minY)
+        programmaticMove = true
+        panel.setFrame(NSRect(origin: origin, size: target), display: true)
+        programmaticMove = false
     }
 
     /// 摆放:优先用户上次拖到的位置;否则当前焦点窗口所在屏幕的底部中央
@@ -227,6 +241,15 @@ struct RecordingBarView: View {
                     lineWidth: 1)
         }
         .environment(\.colorScheme, .dark)
+        // 胶囊始终按理想尺寸布局(不被窗口现有尺寸压缩截断),
+        // 布局后把实际尺寸回报给窗口去适配
+        .fixedSize()
+        .background(GeometryReader { proxy in
+            Color.clear.preference(key: PillSizeKey.self, value: proxy.size)
+        })
+        .onPreferenceChange(PillSizeKey.self) { size in
+            model.onSizeChange?(size)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.18), value: model.phaseKey)
     }
@@ -306,6 +329,13 @@ extension PanelModel {
         case .transcribing: return 1
         case .error: return 2
         }
+    }
+}
+
+private struct PillSizeKey: PreferenceKey {
+    static var defaultValue: CGSize = .zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) {
+        value = nextValue()
     }
 }
 
