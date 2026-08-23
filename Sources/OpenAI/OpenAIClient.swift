@@ -107,10 +107,18 @@ struct OpenAIClient {
         if http.statusCode == 401 { throw ClientError.invalidKey }
         guard (200..<300).contains(http.statusCode) else {
             var message = ""
+            var code = ""
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let err = json["error"] as? [String: Any],
-               let m = err["message"] as? String {
-                message = String(m.prefix(200))
+               let err = json["error"] as? [String: Any] {
+                message = String(((err["message"] as? String) ?? "").prefix(200))
+                code = (err["code"] as? String) ?? (err["type"] as? String) ?? ""
+            }
+            // 429 有两种截然不同的含义,给用户能直接行动的提示
+            if http.statusCode == 429 {
+                if code == "insufficient_quota" || message.lowercased().contains("quota") {
+                    throw ClientError.http(429, "OpenAI 账户余额/额度不足。请到 platform.openai.com → Billing 充值。")
+                }
+                throw ClientError.http(429, "请求过于频繁被 OpenAI 限流,请稍等几秒后重试。")
             }
             throw ClientError.http(http.statusCode, message)
         }
