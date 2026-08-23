@@ -10,6 +10,23 @@ final class SettingsStore: ObservableObject {
     static let defaultTranscribeModel = "gpt-4o-transcribe"
     static let defaultLLMModel = "gpt-5.6-luna"
 
+    /// 界面语言。跟随系统时由系统首选语言决定。
+    enum AppLanguage: String, CaseIterable, Identifiable {
+        case system
+        case zhHans = "zh-Hans"
+        case en = "en"
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .system: return tr("跟随系统")
+            case .zhHans: return "中文"
+            case .en: return "English"
+            }
+        }
+    }
+
     /// 可作为主/备用快捷键的按键。修饰键通过 flagsChanged 捕获,F 键通过 keyDown 捕获。
     enum TriggerKey: String, CaseIterable, Identifiable {
         case none
@@ -23,12 +40,19 @@ final class SettingsStore: ObservableObject {
 
         var displayName: String {
             switch self {
-            case .none: return "无"
+            case .none: return tr("无")
             case .fn: return "Fn"
-            case .rightCommand: return "右 Command"
-            case .rightOption: return "右 Option"
+            case .rightCommand: return tr("右 Command")
+            case .rightOption: return tr("右 Option")
+            case .f13, .f14: return displayNameRaw
+            }
+        }
+
+        private var displayNameRaw: String {
+            switch self {
             case .f13: return "F13"
             case .f14: return "F14"
+            default: return ""
             }
         }
 
@@ -60,9 +84,9 @@ final class SettingsStore: ObservableObject {
 
         var displayName: String {
             switch self {
-            case .low: return "低"
-            case .medium: return "中"
-            case .high: return "高"
+            case .low: return tr("低")
+            case .medium: return tr("中")
+            case .high: return tr("高")
             }
         }
     }
@@ -75,14 +99,17 @@ final class SettingsStore: ObservableObject {
 
         var displayName: String {
             switch self {
-            case .plain: return "低"
-            case .medium: return "中"
-            case .rich: return "高"
+            case .plain: return tr("低")
+            case .medium: return tr("中")
+            case .rich: return tr("高")
             }
         }
     }
 
     private let defaults = UserDefaults.standard
+
+    // MARK: - 语言
+    @Published var appLanguage: AppLanguage { didSet { defaults.set(appLanguage.rawValue, forKey: "appLanguage") } }
 
     // MARK: - 个性化
     @Published var editingEffort: EditingEffort { didSet { defaults.set(editingEffort.rawValue, forKey: "editingEffort") } }
@@ -142,6 +169,7 @@ final class SettingsStore: ObservableObject {
 
     private init() {
         Self.migrateLegacyDefaultsIfNeeded(into: defaults)
+        appLanguage = AppLanguage(rawValue: defaults.string(forKey: "appLanguage") ?? "") ?? .system
         editingEffort = EditingEffort(rawValue: defaults.string(forKey: "editingEffort") ?? "") ?? .medium
         formatLevel = FormatLevel(rawValue: defaults.string(forKey: "formatLevel") ?? "") ?? .plain
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true

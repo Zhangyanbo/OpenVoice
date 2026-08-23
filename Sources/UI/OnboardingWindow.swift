@@ -35,7 +35,7 @@ final class OnboardingWindowController {
         let hosting = NSHostingController(rootView: view)
         if window == nil {
             let window = NSWindow(contentViewController: hosting)
-            window.title = "欢迎使用 OpenVoice"
+            window.title = tr("欢迎使用 OpenVoice")
             window.styleMask = [.titled, .closable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
@@ -53,6 +53,7 @@ final class OnboardingWindowController {
 }
 
 private struct OnboardingView: View {
+    @ObservedObject var settings = SettingsStore.shared
     let initialStep: OnboardingStep
     /// 单页模式:只展示一个步骤,满足条件后「完成」直接关窗
     let standalone: Bool
@@ -107,10 +108,10 @@ private struct OnboardingView: View {
                 AppMark(size: 72)
                     .padding(.top, 12)
                 Text("OpenVoice").font(.system(size: 24, weight: .bold))
-                Text("把光标放到任意地方，按 Fn 说话，再按 Fn，\n文字直接出现。")
+                Text(tr("把光标放到任意地方，按 Fn 说话，再按 Fn，\n文字直接出现。"))
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)
-                Text("无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。")
+                Text(tr("无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。"))
                     .font(.system(size: 11.5))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
@@ -119,16 +120,16 @@ private struct OnboardingView: View {
 
         case .apiKey:
             VStack(alignment: .leading, spacing: 12) {
-                Text("设置 OpenAI API Key").font(.title2.bold())
-                Text("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
+                Text(tr("设置 OpenAI API Key")).font(.title2.bold())
+                Text(tr("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。"))
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 if keySaved && !replacingKey {
                     HStack {
                         Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        Text("已从钥匙串读取到保存的 API Key")
+                        Text(tr("已从钥匙串读取到保存的 API Key"))
                         Spacer()
-                        Button("更换…") { replacingKey = true }
+                        Button(tr("更换…")) { replacingKey = true }
                     }
                     .padding(12)
                     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
@@ -136,14 +137,14 @@ private struct OnboardingView: View {
                     SecureField("sk-…", text: $keyInput)
                         .textFieldStyle(.roundedBorder)
                     HStack {
-                        Button(validating ? "验证中…" : "验证并保存") { validate() }
+                        Button(validating ? tr("正在验证…") : tr("验证并保存")) { validate() }
                             .disabled(keyInput.isEmpty || validating)
                         if !keyStatus.isEmpty {
                             Text(keyStatus).font(.caption).foregroundStyle(.secondary)
                         }
                     }
                 }
-                Text("如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。")
+                Text(tr("如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -152,10 +153,10 @@ private struct OnboardingView: View {
             .onAppear { keySaved = KeychainStore.loadAPIKey() != nil }
 
         case .microphone:
-            permissionStep(title: "授予麦克风权限",
-                           description: "只在语音输入期间使用，录音结束立即停止访问。",
+            permissionStep(title: tr("授予麦克风权限"),
+                           description: tr("只在语音输入期间使用，录音结束立即停止访问。"),
                            granted: micGranted,
-                           buttonTitle: "允许使用麦克风") {
+                           buttonTitle: tr("允许使用麦克风")) {
                 Permissions.requestMicrophone { granted in
                     micGranted = granted
                     if !granted { Permissions.openMicrophoneSettings() }
@@ -163,24 +164,24 @@ private struct OnboardingView: View {
             }
 
         case .accessibility:
-            permissionStep(title: "授予辅助功能权限",
-                           description: "用于全局快捷键、读取光标附近文字、把结果写回光标位置。不截图、不录屏。",
+            permissionStep(title: tr("授予辅助功能权限"),
+                           description: tr("用于全局快捷键、读取光标附近文字、把结果写回光标位置。不截图、不录屏。"),
                            granted: axGranted,
-                           buttonTitle: "打开系统设置") {
+                           buttonTitle: tr("打开系统设置")) {
                 Permissions.promptAccessibility()
                 Permissions.openAccessibilitySettings()
             }
 
         case .tryIt:
             VStack(alignment: .leading, spacing: 12) {
-                Text("试一下").font(.title2.bold())
-                Text("点击下面的输入框，按 \(SettingsStore.shared.primaryKey.displayName)，说一句话，再按一次。")
+                Text(tr("试一下")).font(.title2.bold())
+                Text(tr("点击下面的输入框，按 %@，说一句话，再按一次。", SettingsStore.shared.primaryKey.displayName))
                     .foregroundStyle(.secondary)
                 TextEditor(text: $tryText)
                     .font(.body)
                     .frame(height: 120)
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
-                Text("提示：若使用 Fn，请先在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」。")
+                Text(tr("提示：若使用 Fn，请先在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」。"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -195,7 +196,7 @@ private struct OnboardingView: View {
             HStack {
                 Image(systemName: granted ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(granted ? .green : .secondary)
-                Text(granted ? "已授权" : "未授权")
+                Text(granted ? tr("已授权") : tr("未授权"))
                 Spacer()
                 if !granted {
                     Button(buttonTitle, action: action)
@@ -211,12 +212,12 @@ private struct OnboardingView: View {
             if standalone {
                 // 单页模式:满足条件即可完成,不引导后续步骤
                 Spacer()
-                Button("完成") { onFinish() }
+                Button(tr("完成")) { onFinish() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!canContinue)
             } else {
                 if step != .welcome {
-                    Button("上一步") { step = Step(rawValue: step.rawValue - 1) ?? .welcome }
+                    Button(tr("上一步")) { step = Step(rawValue: step.rawValue - 1) ?? .welcome }
                 }
                 Spacer()
                 // 步骤指示点
@@ -229,10 +230,10 @@ private struct OnboardingView: View {
                 }
                 Spacer()
                 if step == .tryIt {
-                    Button("完成") { onFinish() }
+                    Button(tr("完成")) { onFinish() }
                         .buttonStyle(.borderedProminent)
                 } else {
-                    Button("继续") { step = Step(rawValue: step.rawValue + 1) ?? .tryIt }
+                    Button(tr("继续")) { step = Step(rawValue: step.rawValue + 1) ?? .tryIt }
                         .buttonStyle(.borderedProminent)
                         .disabled(!canContinue)
                 }
@@ -261,7 +262,7 @@ private struct OnboardingView: View {
                 _ = KeychainStore.saveAPIKey(key)
                 await MainActor.run {
                     validating = false
-                    keyStatus = "✓ 已保存"
+                    keyStatus = tr("✓ 已保存")
                     keySaved = true
                     replacingKey = false
                     keyInput = ""
@@ -269,7 +270,7 @@ private struct OnboardingView: View {
             } catch {
                 await MainActor.run {
                     validating = false
-                    keyStatus = "OpenAI 无法验证这个 API Key。"
+                    keyStatus = tr("OpenAI 无法验证这个 API Key。")
                 }
             }
         }

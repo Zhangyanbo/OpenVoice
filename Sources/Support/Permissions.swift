@@ -49,9 +49,9 @@ enum Permissions {
 
     static func showMicrophoneAlert() {
         let alert = NSAlert()
-        alert.messageText = "需要麦克风权限才能进行语音输入。"
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = tr("需要麦克风权限才能进行语音输入。")
+        alert.addButton(withTitle: tr("打开系统设置"))
+        alert.addButton(withTitle: tr("取消"))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn {
             openMicrophoneSettings()
@@ -60,9 +60,9 @@ enum Permissions {
 
     static func showAccessibilityAlert() {
         let alert = NSAlert()
-        alert.messageText = "需要辅助功能权限才能在其他 App 中读取和输入文字。"
-        alert.addButton(withTitle: "打开系统设置")
-        alert.addButton(withTitle: "取消")
+        alert.messageText = tr("需要辅助功能权限才能在其他 App 中读取和输入文字。")
+        alert.addButton(withTitle: tr("打开系统设置"))
+        alert.addButton(withTitle: tr("取消"))
         NSApp.activate(ignoringOtherApps: true)
         if alert.runModal() == .alertFirstButtonReturn {
             openAccessibilitySettings()

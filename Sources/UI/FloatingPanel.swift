@@ -220,6 +220,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
 struct RecordingBarView: View {
     @ObservedObject var model: PanelModel
+    @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
         Group {
@@ -267,11 +268,11 @@ struct RecordingBarView: View {
             WaveformView(levels: model.levels)
             if let seconds = model.countdownSeconds {
                 // 接近最长录音时长:文案变为倒计时,琥珀色提醒
-                Text(String(format: "剩余 %d:%02d", seconds / 60, seconds % 60))
+                Text(tr("剩余 %d:%02d", seconds / 60, seconds % 60))
                     .font(.system(size: 12.5, weight: .medium).monospacedDigit())
                     .foregroundStyle(Color(red: 1.0, green: 0.76, blue: 0.35))
             } else {
-                Text("正在聆听")
+                Text(tr("正在聆听"))
                     .font(.system(size: 12.5, weight: .medium))
                     .foregroundStyle(.white.opacity(0.85))
             }
@@ -286,7 +287,7 @@ struct RecordingBarView: View {
             ProgressView()
                 .controlSize(.small)
                 .tint(.white.opacity(0.8))
-            Text("正在转录…")
+            Text(tr("正在转录…"))
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
         }
@@ -295,14 +296,14 @@ struct RecordingBarView: View {
     private var languageMenu: some View {
         Menu {
             ForEach(model.translation?.options ?? [], id: \.self) { language in
-                Button(language) {
+                Button(L10n.languageName(language)) {
                     model.translation?.current = language
                     model.onLanguageChange?(language)
                 }
             }
         } label: {
             HStack(spacing: 3) {
-                Text(model.translation?.current ?? "")
+                Text(model.translation.map { L10n.languageName($0.current) } ?? "")
                 Image(systemName: "chevron.down")
                     .font(.system(size: 8, weight: .semibold))
             }
@@ -325,10 +326,10 @@ struct RecordingBarView: View {
                 .lineLimit(4)
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: 340, alignment: .leading)
-            Button("重试") { model.onRetry?() }
+            Button(tr("重试")) { model.onRetry?() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
-            Button("关闭") { model.onDismissError?() }
+            Button(tr("关闭")) { model.onDismissError?() }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
         }

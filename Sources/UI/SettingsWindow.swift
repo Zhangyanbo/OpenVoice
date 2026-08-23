@@ -14,12 +14,12 @@ final class SettingsWindowController {
 
         var title: String {
             switch self {
-            case .general: return "通用"
-            case .personalization: return "个性化"
-            case .privacy: return "隐私"
-            case .glossary: return "术语表"
-            case .history: return "历史"
-            case .request: return "请求"
+            case .general: return tr("通用")
+            case .personalization: return tr("个性化")
+            case .privacy: return tr("隐私")
+            case .glossary: return tr("术语表")
+            case .history: return tr("历史")
+            case .request: return tr("请求")
             }
         }
 
@@ -51,7 +51,7 @@ final class SettingsWindowController {
             let content = SettingsRootView(nav: nav)
             let hosting = NSHostingController(rootView: content)
             let window = NSWindow(contentViewController: hosting)
-            window.title = "OpenVoice 设置"
+            window.title = tr("OpenVoice 设置")
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
@@ -74,6 +74,8 @@ final class SettingsNav: ObservableObject {
 
 struct SettingsRootView: View {
     @ObservedObject var nav: SettingsNav
+    // 观察设置:切换界面语言时整个窗口(含侧边栏)立即刷新
+    @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
         HStack(spacing: 0) {
@@ -244,36 +246,36 @@ private struct GeneralPane: View {
     @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
-        PaneScroll(title: "通用") {
+        PaneScroll(title: tr("通用")) {
             SettingsCard {
-                SettingsRow(title: "登录时启动") {
+                SettingsRow(title: tr("登录时启动")) {
                     Toggle("", isOn: $settings.launchAtLogin)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "播放提示音", subtitle: "录音开始与结束时") {
+                SettingsRow(title: tr("播放提示音"), subtitle: tr("录音开始与结束时")) {
                     Toggle("", isOn: $settings.playSound)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "显示语音悬浮条", subtitle: "悬浮条可拖动，位置会被记住") {
+                SettingsRow(title: tr("显示语音悬浮条"), subtitle: tr("悬浮条可拖动，位置会被记住")) {
                     HStack(spacing: 10) {
-                        Button("重置位置") { settings.clearPanelOrigin() }
+                        Button(tr("重置位置")) { settings.clearPanelOrigin() }
                             .controlSize(.small)
                         Toggle("", isOn: $settings.showPanel)
                             .toggleStyle(.switch).controlSize(.small).labelsHidden()
                     }
                 }
                 CardDivider()
-                SettingsRow(title: "Debug", subtitle: "在历史页显示最近一次请求详情") {
+                SettingsRow(title: "Debug", subtitle: tr("在历史页显示最近一次请求详情")) {
                     Toggle("", isOn: $settings.debugMode)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
             }
 
-            SettingsCard(title: "快捷键",
-                         footer: "若使用 Fn，请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」，避免与系统听写冲突。") {
-                SettingsRow(title: "语音输入") {
+            SettingsCard(title: tr("快捷键"),
+                         footer: tr("若使用 Fn，请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」，避免与系统听写冲突。")) {
+                SettingsRow(title: tr("语音输入")) {
                     Picker("", selection: $settings.primaryKey) {
                         ForEach(SettingsStore.TriggerKey.allCases.filter { $0 != .none }) { key in
                             Text(key.displayName).tag(key)
@@ -282,7 +284,7 @@ private struct GeneralPane: View {
                     .labelsHidden().fixedSize()
                 }
                 CardDivider()
-                SettingsRow(title: "备用快捷键") {
+                SettingsRow(title: tr("备用快捷键")) {
                     Picker("", selection: $settings.altKey) {
                         ForEach(SettingsStore.TriggerKey.allCases) { key in
                             Text(key.displayName).tag(key)
@@ -291,8 +293,8 @@ private struct GeneralPane: View {
                     .labelsHidden().fixedSize()
                 }
                 CardDivider()
-                SettingsRow(title: "翻译") {
-                    Text("\(settings.primaryKey.displayName) + 左 Shift")
+                SettingsRow(title: tr("翻译")) {
+                    Text(tr("%@ + 左 Shift", settings.primaryKey.displayName))
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
                 }
@@ -311,21 +313,21 @@ private struct PersonalizationPane: View {
     @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
-        PaneScroll(title: "个性化") {
-            SettingsCard(title: "编辑力度",
-                         footer: "控制整理模型对转录文本的改写程度。最低只删除填充词、重复的句子和无意义的口头语，补全标点；中等在此基础上理顺句子，但不增删内容；最高则把转录当作草稿，按原意完全重写。") {
-                SettingsRow(title: "编辑力度") {
-                    LevelSlider(low: "低", high: "高",
+        PaneScroll(title: tr("个性化")) {
+            SettingsCard(title: tr("编辑力度"),
+                         footer: tr("控制整理模型对转录文本的改写程度。最低只删除填充词、重复的句子和无意义的口头语，补全标点；中等在此基础上理顺句子，但不增删内容；最高则把转录当作草稿，按原意完全重写。")) {
+                SettingsRow(title: tr("编辑力度")) {
+                    LevelSlider(low: tr("低"), high: tr("高"),
                                 index: Binding(
                                     get: { Double(SettingsStore.EditingEffort.allCases.firstIndex(of: settings.editingEffort) ?? 1) },
                                     set: { settings.editingEffort = SettingsStore.EditingEffort.allCases[Int($0)] }))
                 }
             }
 
-            SettingsCard(title: "格式化程度",
-                         footer: "控制输出文本的组织形式。最低保持说话时的自然分段，不添加任何结构；中等在内容适合列举时使用简单的项目符号或编号；最高则用小节标题、项目符号等完整层级来组织内容。") {
-                SettingsRow(title: "格式化程度") {
-                    LevelSlider(low: "低", high: "高",
+            SettingsCard(title: tr("格式化程度"),
+                         footer: tr("控制输出文本的组织形式。最低保持说话时的自然分段，不添加任何结构；中等在内容适合列举时使用简单的项目符号或编号；最高则用小节标题、项目符号等完整层级来组织内容。")) {
+                SettingsRow(title: tr("格式化程度")) {
+                    LevelSlider(low: tr("低"), high: tr("高"),
                                 index: Binding(
                                     get: { Double(SettingsStore.FormatLevel.allCases.firstIndex(of: settings.formatLevel) ?? 0) },
                                     set: { settings.formatLevel = SettingsStore.FormatLevel.allCases[Int($0)] }))
@@ -361,28 +363,28 @@ private struct PrivacyPane: View {
     @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
-        PaneScroll(title: "隐私") {
-            SettingsCard(title: "上下文",
-                         footer: "开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。") {
-                SettingsRow(title: "使用当前 App 上下文", subtitle: "App 名称与窗口标题") {
+        PaneScroll(title: tr("隐私")) {
+            SettingsCard(title: tr("上下文"),
+                         footer: tr("开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。")) {
+                SettingsRow(title: tr("使用当前 App 上下文"), subtitle: tr("App 名称与窗口标题")) {
                     Toggle("", isOn: $settings.useAppContext)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "读取光标附近文字") {
+                SettingsRow(title: tr("读取光标附近文字")) {
                     Toggle("", isOn: $settings.readNearbyText)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "读取选中文字") {
+                SettingsRow(title: tr("读取选中文字")) {
                     Toggle("", isOn: $settings.readSelectedText)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
             }
 
-            SettingsCard(footer: "本应用不截图、不 OCR、不申请屏幕录制权限、不记录键盘输入。除录音音频与上方选择的上下文外，API Key、术语表、设置与历史记录全部只保存在这台 Mac 上。") {
-                SettingsRow(title: "数据边界",
-                            subtitle: "每次请求只发送：当次录音 + 上方勾选的上下文 + 术语提示") {
+            SettingsCard(footer: tr("本应用不截图、不 OCR、不申请屏幕录制权限、不记录键盘输入。除录音音频与上方选择的上下文外，API Key、术语表、设置与历史记录全部只保存在这台 Mac 上。")) {
+                SettingsRow(title: tr("数据边界"),
+                            subtitle: tr("每次请求只发送：当次录音 + 上方勾选的上下文 + 术语提示")) {
                     Image(systemName: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
@@ -398,13 +400,22 @@ private struct LanguageCard: View {
     @State private var newLanguage = ""
 
     private let recognitionOptions: [(String, String)] = [
-        ("auto", "自动检测"), ("zh", "中文"), ("en", "英语"), ("ja", "日语"), ("ko", "韩语"),
-        ("de", "德语"), ("fr", "法语"), ("es", "西班牙语"),
+        ("auto", tr("自动检测")), ("zh", tr("中文")), ("en", tr("英语")), ("ja", tr("日语")), ("ko", tr("韩语")),
+        ("de", tr("德语")), ("fr", tr("法语")), ("es", tr("西班牙语")),
     ]
 
     var body: some View {
-        SettingsCard(title: "语言") {
-            SettingsRow(title: "语音识别语言") {
+        SettingsCard(title: tr("语言")) {
+            SettingsRow(title: tr("界面语言")) {
+                Picker("", selection: $settings.appLanguage) {
+                    ForEach(SettingsStore.AppLanguage.allCases) { lang in
+                        Text(lang.displayName).tag(lang)
+                    }
+                }
+                .labelsHidden().fixedSize()
+            }
+            CardDivider()
+            SettingsRow(title: tr("语音识别语言")) {
                 Picker("", selection: $settings.recognitionLanguage) {
                     ForEach(recognitionOptions, id: \.0) { code, name in
                         Text(name).tag(code)
@@ -414,19 +425,19 @@ private struct LanguageCard: View {
             }
             CardDivider()
             ForEach(Array(settings.targetLanguages.enumerated()), id: \.offset) { index, language in
-                SettingsRow(title: index == 0 ? "翻译目标语言" : " ",
+                SettingsRow(title: index == 0 ? tr("翻译目标语言") : " ",
                             subtitle: nil) {
                     HStack(spacing: 8) {
                         if index == 0 {
-                            Text(language).font(.system(size: 13))
-                            Text("默认")
+                            Text(L10n.languageName(language)).font(.system(size: 13))
+                            Text(tr("默认"))
                                 .font(.system(size: 10, weight: .semibold))
                                 .padding(.horizontal, 6).padding(.vertical, 2)
                                 .background(Color.accentColor.opacity(0.15), in: Capsule())
                                 .foregroundStyle(Color.accentColor)
                         } else {
-                            Text(language).font(.system(size: 13)).foregroundStyle(.secondary)
-                            Button("设为默认") {
+                            Text(L10n.languageName(language)).font(.system(size: 13)).foregroundStyle(.secondary)
+                            Button(tr("设为默认")) {
                                 var list = settings.targetLanguages
                                 list.remove(at: index)
                                 list.insert(language, at: 0)
@@ -449,11 +460,11 @@ private struct LanguageCard: View {
             }
             CardDivider()
             HStack(spacing: 8) {
-                TextField("添加翻译语言，如：日语", text: $newLanguage)
+                TextField(tr("添加翻译语言，如：日语"), text: $newLanguage)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .onSubmit(addLanguage)
-                Button("添加", action: addLanguage)
+                Button(tr("添加"), action: addLanguage)
                     .controlSize(.small)
                     .disabled(newLanguage.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -483,16 +494,16 @@ private struct OpenAICard: View {
     private let llmOptions = ["", "gpt-5.6-luna", "gpt-5-nano", "gpt-4.1-nano", "gpt-5.4-mini"]
 
     var body: some View {
-        SettingsCard(title: "OpenAI", footer: "默认模型即当前推荐，普通使用无需修改。API Key 只保存在 macOS 钥匙串。") {
+        SettingsCard(title: "OpenAI", footer: tr("默认模型即当前推荐，普通使用无需修改。API Key 只保存在 macOS 钥匙串。")) {
             if editingKey {
                 VStack(alignment: .leading, spacing: 8) {
-                    SecureField("API Key(sk-…)", text: $keyInput)
+                    SecureField(tr("API Key(sk-…)"), text: $keyInput)
                         .textFieldStyle(.roundedBorder)
                     HStack {
-                        Button("保存并验证") { saveKey() }
+                        Button(tr("保存并验证")) { saveKey() }
                             .controlSize(.small)
                             .disabled(keyInput.isEmpty || validating)
-                        Button("取消") {
+                        Button(tr("取消")) {
                             editingKey = false; keyInput = ""; status = ""
                         }
                         .controlSize(.small)
@@ -508,28 +519,28 @@ private struct OpenAICard: View {
                 SettingsRow(title: "API Key",
                             subtitle: status.isEmpty ? nil : status) {
                     HStack(spacing: 10) {
-                        Text(KeychainStore.loadAPIKey() != nil ? "•••••••••••" : "未设置")
+                        Text(KeychainStore.loadAPIKey() != nil ? "•••••••••••" : tr("未设置"))
                             .font(.system(size: 12, design: .monospaced))
                             .foregroundStyle(.secondary)
-                        Button("修改") { editingKey = true }
+                        Button(tr("修改")) { editingKey = true }
                             .controlSize(.small)
                     }
                 }
             }
             CardDivider()
-            SettingsRow(title: "语音识别模型") {
+            SettingsRow(title: tr("语音识别模型")) {
                 Picker("", selection: $settings.transcribeModel) {
                     ForEach(transcribeOptions, id: \.self) { model in
-                        Text(model.isEmpty ? "默认（\(SettingsStore.defaultTranscribeModel)）" : model).tag(model)
+                        Text(model.isEmpty ? tr("默认（%@）", SettingsStore.defaultTranscribeModel) : model).tag(model)
                     }
                 }
                 .labelsHidden().fixedSize()
             }
             CardDivider()
-            SettingsRow(title: "语言模型") {
+            SettingsRow(title: tr("语言模型")) {
                 Picker("", selection: $settings.llmModel) {
                     ForEach(llmOptions, id: \.self) { model in
-                        Text(model.isEmpty ? "默认（\(SettingsStore.defaultLLMModel)）" : model).tag(model)
+                        Text(model.isEmpty ? tr("默认（%@）", SettingsStore.defaultLLMModel) : model).tag(model)
                     }
                 }
                 .labelsHidden().fixedSize()
@@ -540,19 +551,19 @@ private struct OpenAICard: View {
     private func saveKey() {
         let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         validating = true
-        status = "正在验证…"
+        status = tr("正在验证…")
         Task {
             do {
                 try await OpenAIClient(apiKey: key).validateKey()
                 _ = KeychainStore.saveAPIKey(key)
                 await MainActor.run {
                     validating = false; editingKey = false; keyInput = ""
-                    status = "已保存到 Keychain"
+                    status = tr("已保存到 Keychain")
                 }
             } catch {
                 await MainActor.run {
                     validating = false
-                    status = "OpenAI 无法验证这个 API Key"
+                    status = tr("OpenAI 无法验证这个 API Key")
                 }
             }
         }
@@ -569,7 +580,7 @@ private struct GlossaryPane: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("术语表")
+            Text(tr("术语表"))
                 .font(.system(size: 20, weight: .bold))
                 .padding(.top, 34)
 
@@ -578,7 +589,7 @@ private struct GlossaryPane: View {
                     Image(systemName: "magnifyingglass")
                         .font(.system(size: 11))
                         .foregroundStyle(.tertiary)
-                    TextField("搜索", text: $query)
+                    TextField(tr("搜索"), text: $query)
                         .textFieldStyle(.plain)
                         .font(.system(size: 12.5))
                 }
@@ -587,7 +598,7 @@ private struct GlossaryPane: View {
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
-                Button("导入…", action: importFile)
+                Button(tr("导入…"), action: importFile)
                     .controlSize(.regular)
             }
 
@@ -597,7 +608,7 @@ private struct GlossaryPane: View {
                         Image(systemName: "character.book.closed")
                             .font(.system(size: 24))
                             .foregroundStyle(.quaternary)
-                        Text(query.isEmpty ? "还没有术语。添加人名、项目名、常被识别错的词。" : "没有匹配的术语")
+                        Text(query.isEmpty ? tr("还没有术语。添加人名、项目名、常被识别错的词。") : tr("没有匹配的术语"))
                             .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                     }
@@ -617,7 +628,7 @@ private struct GlossaryPane: View {
             .frame(maxHeight: .infinity)
 
             HStack(spacing: 8) {
-                TextField("添加术语", text: $newTerm)
+                TextField(tr("添加术语"), text: $newTerm)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12.5))
                     .padding(.horizontal, 9)
@@ -626,7 +637,7 @@ private struct GlossaryPane: View {
                     .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
                         .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
                     .onSubmit(add)
-                Button("添加", action: add)
+                Button(tr("添加"), action: add)
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
@@ -644,11 +655,11 @@ private struct GlossaryPane: View {
     private func importFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.plainText]
-        panel.message = "选择一个文本文件，每行一个术语"
+        panel.message = tr("选择一个文本文件，每行一个术语")
         guard panel.runModal() == .OK, let url = panel.url,
               let content = try? String(contentsOf: url, encoding: .utf8) else { return }
         let count = glossary.importText(content)
-        ToastPanel.show(message: "已导入 \(count) 个术语")
+        ToastPanel.show(message: tr("已导入 %lld 个术语", count))
     }
 }
 
@@ -661,7 +672,7 @@ private struct GlossaryRow: View {
         HStack(spacing: 8) {
             Text(term.text).font(.system(size: 13))
             if term.source == "learned" {
-                Text("已学习 ×\(term.confidence)")
+                Text(tr("已学习 ×%lld", term.confidence))
                     .font(.system(size: 10, weight: .medium))
                     .padding(.horizontal, 6).padding(.vertical, 2)
                     .background(Color.purple.opacity(0.12), in: Capsule())
@@ -697,13 +708,13 @@ private struct HistoryPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("历史")
+                Text(tr("历史"))
                     .font(.system(size: 20, weight: .bold))
                 Spacer()
-                Toggle("保留历史", isOn: $settings.keepHistory)
+                Toggle(tr("保留历史"), isOn: $settings.keepHistory)
                     .toggleStyle(.switch).controlSize(.mini)
                     .font(.system(size: 11))
-                Button("清空") { history.clear() }
+                Button(tr("清空")) { history.clear() }
                     .controlSize(.small)
                     .disabled(history.entries.isEmpty)
             }
@@ -715,7 +726,7 @@ private struct HistoryPane: View {
                         Image(systemName: "clock.arrow.circlepath")
                             .font(.system(size: 24))
                             .foregroundStyle(.quaternary)
-                        Text("还没有转录记录")
+                        Text(tr("还没有转录记录"))
                             .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                     }
@@ -748,10 +759,10 @@ private struct HistoryPane: View {
                 DisclosureGroup(isExpanded: $showDebug) {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
-                            debugRow("发送的上下文", log.contextSummary)
-                            debugRow("术语提示", log.termHint.isEmpty ? "（无）" : log.termHint)
-                            debugRow("文字插入", log.insertTrace.isEmpty ? "（无）" : log.insertTrace)
-                            debugRow("错误", log.lastError ?? "（无）")
+                            debugRow(tr("发送的上下文"), log.contextSummary)
+                            debugRow(tr("术语提示"), log.termHint.isEmpty ? tr("（无）") : log.termHint)
+                            debugRow(tr("文字插入"), log.insertTrace.isEmpty ? tr("（无）") : log.insertTrace)
+                            debugRow(tr("错误"), log.lastError ?? tr("（无）"))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
@@ -759,7 +770,7 @@ private struct HistoryPane: View {
                     .frame(maxHeight: 130)
                     .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                 } label: {
-                    Text("最近一次请求详情")
+                    Text(tr("最近一次请求详情"))
                         .font(.system(size: 11.5))
                         .foregroundStyle(.secondary)
                 }
@@ -767,15 +778,15 @@ private struct HistoryPane: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 20)
-        .confirmationDialog("是否删除？",
+        .confirmationDialog(tr("是否删除？"),
                             isPresented: Binding(get: { pendingDelete != nil },
                                                  set: { if !$0 { pendingDelete = nil } }),
                             presenting: pendingDelete) { entry in
-            Button("删除", role: .destructive) {
+            Button(tr("删除"), role: .destructive) {
                 history.remove(entry)
                 pendingDelete = nil
             }
-            Button("取消", role: .cancel) { pendingDelete = nil }
+            Button(tr("取消"), role: .cancel) { pendingDelete = nil }
         }
     }
 
@@ -798,14 +809,14 @@ private struct RequestPane: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline) {
-                Text("请求")
+                Text(tr("请求"))
                     .font(.system(size: 20, weight: .bold))
                 Spacer()
                 if log.timestamp != nil {
-                    Text("最近一次：\(log.timestamp!.formatted(date: .abbreviated, time: .standard))")
+                    Text(tr("最近一次：%@", log.timestamp!.formatted(date: .abbreviated, time: .standard)))
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
-                    Button("复制全部") { copy(allText(), id: "all") }
+                    Button(tr("复制全部")) { copy(allText(), id: "all") }
                         .controlSize(.small)
                 }
             }
@@ -817,7 +828,7 @@ private struct RequestPane: View {
                         Image(systemName: "arrow.up.forward.app")
                             .font(.system(size: 24))
                             .foregroundStyle(.quaternary)
-                        Text("还没有发送过请求")
+                        Text(tr("还没有发送过请求"))
                             .font(.system(size: 12))
                             .foregroundStyle(.tertiary)
                     }
@@ -828,15 +839,15 @@ private struct RequestPane: View {
             } else {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
-                        payloadCard("系统提示词", log.systemPrompt)
-                        payloadCard("用户提示词", log.userPrompt)
-                        payloadCard("转录原文", log.transcript)
-                        payloadCard("模型回复", log.response.isEmpty ? "（无，请求失败或未到达整理阶段）" : log.response)
-                        payloadCard("发送的上下文", log.contextSummary)
-                        payloadCard("术语提示", log.termHint.isEmpty ? "（无）" : log.termHint)
-                        payloadCard("文字插入", log.insertTrace.isEmpty ? "（无）" : log.insertTrace)
+                        payloadCard(tr("系统提示词"), log.systemPrompt)
+                        payloadCard(tr("用户提示词"), log.userPrompt)
+                        payloadCard(tr("转录原文"), log.transcript)
+                        payloadCard(tr("模型回复"), log.response.isEmpty ? tr("（无，请求失败或未到达整理阶段）") : log.response)
+                        payloadCard(tr("发送的上下文"), log.contextSummary)
+                        payloadCard(tr("术语提示"), log.termHint.isEmpty ? tr("（无）") : log.termHint)
+                        payloadCard(tr("文字插入"), log.insertTrace.isEmpty ? tr("（无）") : log.insertTrace)
                         if let error = log.lastError {
-                            payloadCard("错误", error)
+                            payloadCard(tr("错误"), error)
                         }
                     }
                 }
@@ -854,7 +865,7 @@ private struct RequestPane: View {
                 Button {
                     copy(content, id: title)
                 } label: {
-                    Label(copiedSection == title ? "已复制" : "复制",
+                    Label(copiedSection == title ? tr("已复制") : tr("复制"),
                           systemImage: copiedSection == title ? "checkmark" : "doc.on.doc")
                         .font(.system(size: 11))
                         .labelStyle(.titleAndIcon)
@@ -866,7 +877,7 @@ private struct RequestPane: View {
                 .padding(.top, 6)
             }
             ScrollView {
-                Text(content.isEmpty ? "（空）" : content)
+                Text(content.isEmpty ? tr("（空）") : content)
                     .font(.system(size: 11, design: .monospaced))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(10)
@@ -877,10 +888,10 @@ private struct RequestPane: View {
 
     private func allText() -> String {
         var parts: [String] = []
-        parts.append("【系统提示词】\n\(log.systemPrompt)")
-        parts.append("【用户提示词】\n\(log.userPrompt)")
-        parts.append("【转录原文】\n\(log.transcript)")
-        parts.append("【模型回复】\n\(log.response)")
+        parts.append(tr("【系统提示词】") + "\n" + log.systemPrompt)
+        parts.append(tr("【用户提示词】") + "\n" + log.userPrompt)
+        parts.append(tr("【转录原文】") + "\n" + log.transcript)
+        parts.append(tr("【模型回复】") + "\n" + log.response)
         return parts.joined(separator: "\n\n")
     }
 
@@ -926,11 +937,11 @@ private struct HistoryRow: View {
             HStack(spacing: 4) {
                 IconButton(systemName: copied ? "checkmark" : "doc.on.doc",
                            tint: copied ? .green : .secondary,
-                           help: copied ? "已复制" : "复制",
+                           help: copied ? tr("已复制") : tr("复制"),
                            action: onCopy)
                 IconButton(systemName: "trash",
                            tint: .secondary,
-                           help: "删除",
+                           help: tr("删除"),
                            action: onDelete)
             }
         }

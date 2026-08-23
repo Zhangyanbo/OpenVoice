@@ -23,7 +23,7 @@ final class AudioRecorder {
         let inputFormat = input.outputFormat(forBus: 0)
         guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
             throw NSError(domain: "AudioRecorder", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "没有可用的录音设备。"])
+                          userInfo: [NSLocalizedDescriptionKey: tr("没有可用的录音设备。")])
         }
 
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
@@ -32,7 +32,7 @@ final class AudioRecorder {
                                                interleaved: true),
               let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
             throw NSError(domain: "AudioRecorder", code: 2,
-                          userInfo: [NSLocalizedDescriptionKey: "无法初始化音频转换。"])
+                          userInfo: [NSLocalizedDescriptionKey: tr("无法初始化音频转换。")])
         }
         self.converter = converter
 

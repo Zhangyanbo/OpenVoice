@@ -1,6 +1,8 @@
 name: OpenVoice
 options:
   createIntermediateGroups: true
+  # 开发语言为中文:源码中的中文字符串是本地化 key,en 翻译在 String Catalog 中维护
+  developmentLanguage: zh-Hans
   deploymentTarget:
     macOS: "14.0"
 targets:

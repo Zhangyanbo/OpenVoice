@@ -11,10 +11,10 @@ struct OpenAIClient {
 
         var errorDescription: String? {
             switch self {
-            case .noAPIKey: return "尚未设置 OpenAI API Key。"
-            case .invalidKey: return "OpenAI 无法验证这个 API Key。"
-            case .http(let code, let message): return "OpenAI 请求失败（\(code)）：\(message)"
-            case .badResponse: return "OpenAI 返回了无法解析的结果。"
+            case .noAPIKey: return tr("尚未设置 OpenAI API Key。")
+            case .invalidKey: return tr("OpenAI 无法验证这个 API Key。")
+            case .http(let code, let message): return tr("OpenAI 请求失败（%lld）：%@", code, message)
+            case .badResponse: return tr("OpenAI 返回了无法解析的结果。")
             }
         }
     }
@@ -144,9 +144,9 @@ struct OpenAIClient {
             // 429 有两种截然不同的含义,给用户能直接行动的提示
             if http.statusCode == 429 {
                 if code == "insufficient_quota" || message.lowercased().contains("quota") {
-                    throw ClientError.http(429, "OpenAI 账户余额/额度不足。请到 platform.openai.com → Billing 充值。")
+                    throw ClientError.http(429, tr("OpenAI 账户余额/额度不足。请到 platform.openai.com → Billing 充值。"))
                 }
-                throw ClientError.http(429, "请求过于频繁被 OpenAI 限流，请稍等几秒后重试。")
+                throw ClientError.http(429, tr("请求过于频繁被 OpenAI 限流，请稍等几秒后重试。"))
             }
             throw ClientError.http(http.statusCode, message)
         }

@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 /// 菜单栏应用(LSUIElement,无 Dock 图标)。
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -8,13 +9,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var tapWatchdog: Timer?
     private var startItem: NSMenuItem!
     private var translateItem: NSMenuItem!
+    private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        setupMainMenu()
         setupStatusItem()
         setupHotkeys()
         setupAutoLearnToast()
         startTapWatchdog()
+
+        // 切换界面语言时重建所有原生菜单(SwiftUI 界面靠视图观察自动刷新,
+        // AppKit 菜单没有响应式机制,必须手动重建)
+        SettingsStore.shared.$appLanguage
+            .dropFirst()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.setupMainMenu()
+                self?.setupStatusItemMenu()
+            }
+            .store(in: &cancellables)
 
         NotificationCenter.default.addObserver(forName: .openSettingsRequest, object: nil, queue: .main) { _ in
             SettingsWindowController.shared.show()
@@ -40,20 +52,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
-        appMenu.addItem(withTitle: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        appMenu.addItem(withTitle: "退出 OpenVoice", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: tr("关闭窗口"), action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
+        appMenu.addItem(withTitle: tr("退出 OpenVoice"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 
         let editItem = NSMenuItem()
-        let editMenu = NSMenu(title: "编辑")
-        editMenu.addItem(withTitle: "撤销", action: Selector(("undo:")), keyEquivalent: "z")
-        editMenu.addItem(withTitle: "重做", action: Selector(("redo:")), keyEquivalent: "Z")
+        let editMenu = NSMenu(title: tr("编辑"))
+        editMenu.addItem(withTitle: tr("撤销"), action: Selector(("undo:")), keyEquivalent: "z")
+        editMenu.addItem(withTitle: tr("重做"), action: Selector(("redo:")), keyEquivalent: "Z")
         editMenu.addItem(.separator())
-        editMenu.addItem(withTitle: "剪切", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
-        editMenu.addItem(withTitle: "拷贝", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
-        editMenu.addItem(withTitle: "粘贴", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
-        editMenu.addItem(withTitle: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(withTitle: tr("剪切"), action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: tr("拷贝"), action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: tr("粘贴"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: tr("全选"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = editMenu
         mainMenu.addItem(editItem)
 
@@ -76,26 +88,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "OpenVoice")
             }
         }
+        setupMainMenu()
+        setupStatusItemMenu()
+    }
 
+    /// 重建状态栏菜单(语言切换时整体重建,保证文案即时更新)
+    private func setupStatusItemMenu() {
         let menu = NSMenu()
         menu.delegate = self
-        startItem = menu.addItem(withTitle: "开始语音输入", action: #selector(startDictation), keyEquivalent: "")
+        startItem = menu.addItem(withTitle: tr("开始语音输入"), action: #selector(startDictation), keyEquivalent: "")
         startItem.target = self
-        translateItem = menu.addItem(withTitle: "开始翻译输入", action: #selector(startTranslation), keyEquivalent: "")
+        translateItem = menu.addItem(withTitle: tr("开始翻译输入"), action: #selector(startTranslation), keyEquivalent: "")
         translateItem.target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: ",").target = self
-        menu.addItem(withTitle: "转录历史…", action: #selector(openHistory), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "重新打开欢迎引导", action: #selector(openOnboarding), keyEquivalent: "").target = self
+        menu.addItem(withTitle: tr("设置…"), action: #selector(openSettings), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: tr("转录历史…"), action: #selector(openHistory), keyEquivalent: "").target = self
+        menu.addItem(withTitle: tr("重新打开欢迎引导"), action: #selector(openOnboarding), keyEquivalent: "").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 OpenVoice", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: tr("退出 OpenVoice"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
     }
 
     /// 录音中把「开始」项换成「停止」,保证没有快捷键(如权限异常时)也能停下来
     func menuNeedsUpdate(_ menu: NSMenu) {
         let recording = controller.isRecording
-        startItem.title = recording ? "停止录音并转录" : "开始语音输入"
+        startItem.title = recording ? tr("停止录音并转录") : tr("开始语音输入")
         translateItem.isHidden = recording
     }
 
@@ -163,7 +180,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private func setupAutoLearnToast() {
         controller.autoLearner.onLearned = { term, undo in
-            ToastPanel.show(message: "已学习“\(term)”", actionTitle: "撤销", action: undo)
+            ToastPanel.show(message: tr("已学习“%@”", term), actionTitle: tr("撤销"), action: undo)
         }
     }
 }

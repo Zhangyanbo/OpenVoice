@@ -4,7 +4,7 @@ import AppKit
 /// 记录上次实际发送给 OpenAI 的上下文与术语提示,供"查看本次发送的上下文"(spec §18)。
 final class LastRequestLog: ObservableObject {
     static let shared = LastRequestLog()
-    @Published var contextSummary: String = "（还没有发送过请求）"
+    @Published var contextSummary: String = tr("（还没有发送过请求）")
     @Published var termHint: String = ""
     @Published var timestamp: Date?
     /// 最近一次失败的完整错误信息(悬浮条上只显示截断版)
@@ -159,7 +159,7 @@ final class DictationController {
             try recorder.start()
         } catch {
             session = nil
-            showError("无法开始录音：\(error.localizedDescription)")
+            showError(tr("无法开始录音：%@", error.localizedDescription))
             return
         }
 
@@ -241,7 +241,7 @@ final class DictationController {
         let llmModel = settings.effectiveLLMModel
 
         LastRequestLog.shared.contextSummary = context.summary
-        LastRequestLog.shared.termHint = termHint.isEmpty ? "（无）" : termHint
+        LastRequestLog.shared.termHint = termHint.isEmpty ? tr("（无）") : termHint
         LastRequestLog.shared.timestamp = Date()
         LastRequestLog.shared.resetPayload()
 
@@ -303,8 +303,8 @@ final class DictationController {
         if settings.keepHistory {
             let modeLabel: String
             switch mode {
-            case .dictation: modeLabel = "语音"
-            case .translation(let language): modeLabel = "翻译 → \(language)"
+            case .dictation: modeLabel = tr("语音")
+            case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
             }
             HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName)
         }
@@ -317,7 +317,7 @@ final class DictationController {
                 // 恢复时在此按插入方式重新接上观察
                 break
             case .copiedToClipboardOnly:
-                ToastPanel.show(message: "无法自动输入，结果已复制到剪贴板。")
+                ToastPanel.show(message: tr("无法自动输入，结果已复制到剪贴板。"))
             }
         }
     }
@@ -335,7 +335,7 @@ final class DictationController {
         NSLog("转录失败：\(reason)")
         LastRequestLog.shared.lastError = reason
         LastRequestLog.shared.lastErrorAt = Date()
-        panel.showError("转录失败：\(reason)")
+        panel.showError(tr("转录失败：%@", reason))
     }
 
     // MARK: - Prompt 组装(spec §3, §8, §13)
