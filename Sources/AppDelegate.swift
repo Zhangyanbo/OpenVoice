@@ -74,17 +74,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self?.controller.isRecording ?? false
         }
         hotkeys.onTrigger = { [weak self] trigger in
-            guard let self else { return false }
+            guard let self else { return }
             switch trigger {
-            case .toggleDictation:
-                self.controller.toggleDictation()
-                return true
-            case .toggleTranslation:
-                self.controller.toggleTranslation()
-                return true
-            case .cancel:
-                self.controller.cancel()
-                return true
+            case .toggleDictation: self.controller.toggleDictation()
+            case .toggleTranslation: self.controller.toggleTranslation()
+            case .cancel: self.controller.cancel()
             }
         }
         hotkeys.start()

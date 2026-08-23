@@ -21,8 +21,8 @@ final class HotkeyManager {
         case cancel            // Esc(仅录音中)
     }
 
-    /// 返回 true 表示事件被消费(将被吞掉)
-    var onTrigger: ((Trigger) -> Bool)?
+    /// 在主队列异步调用;是否吞掉事件由 tap 回调内的廉价状态判断决定
+    var onTrigger: ((Trigger) -> Void)?
     /// 由 DictationController 维护;录音中才拦截 Esc
     var isRecordingProvider: (() -> Bool)?
 
@@ -97,13 +97,13 @@ final class HotkeyManager {
         case .keyDown:
             // 录音中 Esc → 取消并吞掉
             if recording, keyCode == Self.escKeyCode {
-                let consumed = fire(.cancel)
-                return consumed ? nil : Unmanaged.passUnretained(event)
+                fire(.cancel)
+                return nil
             }
-            // 非修饰键型的主/备用键(F13 等)
+            // 非修饰键型的主/备用键(F13 等)→ 触发并吞掉
             if let trigger = fKeyTrigger(keyCode: keyCode) {
-                let consumed = fire(trigger)
-                return consumed ? nil : Unmanaged.passUnretained(event)
+                fire(trigger)
+                return nil
             }
             if primaryDown { otherKeyPressedDuringPrimary = true }
             return Unmanaged.passUnretained(event)
@@ -141,11 +141,11 @@ final class HotkeyManager {
             guard !otherKeyPressedDuringPrimary else { return }
             let recording = isRecordingProvider?() ?? false
             if recording {
-                _ = fire(.toggleDictation) // 录音中任何主键抬起都是"停止"
+                fire(.toggleDictation) // 录音中任何主键抬起都是"停止"
             } else if shiftSeenDuringPrimary || leftShiftDown {
-                _ = fire(.toggleTranslation)
+                fire(.toggleTranslation)
             } else {
-                _ = fire(.toggleDictation)
+                fire(.toggleDictation)
             }
         }
     }
@@ -179,9 +179,11 @@ final class HotkeyManager {
         modifierIsDown(keyCode: keyCode, flags: flags)
     }
 
-    private func fire(_ trigger: Trigger) -> Bool {
-        // tap 的 runloop source 挂在主运行循环上,这里已经在主线程,直接同步调用,
-        // 返回值决定事件是否被吞掉
-        onTrigger?(trigger) ?? false
+    private func fire(_ trigger: Trigger) {
+        // 事件 tap 回调必须立即返回,否则会卡住全系统键盘输入直至被系统禁用;
+        // 实际工作(弹窗、AX 读取、启动录音)一律异步派发到主队列
+        DispatchQueue.main.async { [weak self] in
+            self?.onTrigger?(trigger)
+        }
     }
 }

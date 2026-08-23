@@ -198,7 +198,7 @@ final class DictationController {
                     return
                 }
 
-                // 轻量语言模型整理(失败时降级为原始转录,不阻断插入)
+                // 轻量语言模型整理
                 var final = raw
                 do {
                     final = try await client.chat(model: llmModel,
@@ -206,6 +206,18 @@ final class DictationController {
                                                   user: Self.userPrompt(mode: mode, context: context, transcript: raw))
                     if final.isEmpty { final = raw }
                 } catch {
+                    // 只有普通听写且无选中文字时才可安全降级为原始转录;
+                    // 翻译模式降级会插入未翻译文本,选中文字指令模式降级会用指令原文
+                    // 覆盖用户选中的内容 —— 这两种情况一律走失败+重试(spec §19)
+                    var canFallbackToRaw = false
+                    if case .dictation = mode, context.selectedText == nil { canFallbackToRaw = true }
+                    guard canFallbackToRaw else {
+                        await MainActor.run {
+                            self.transcriptionFailed(wav: wav, mode: mode, context: context,
+                                                     target: target, error: error)
+                        }
+                        return
+                    }
                     NSLog("整理模型失败,使用原始转录: \(error.localizedDescription)")
                 }
 
@@ -222,9 +234,10 @@ final class DictationController {
 
     private func insert(text: String, target: InsertionTarget?) {
         state = .idle
+        // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
+        panel.hide()
         TextInserter.insert(text, target: target) { [weak self] result in
             guard let self else { return }
-            self.panel.hide()
             switch result {
             case .inserted(let method):
                 if method == .accessibility, let element = target?.element {
