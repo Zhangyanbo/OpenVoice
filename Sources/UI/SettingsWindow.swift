@@ -258,6 +258,11 @@ private struct GeneralPane: View {
                             .toggleStyle(.switch).controlSize(.small).labelsHidden()
                     }
                 }
+                CardDivider()
+                SettingsRow(title: "Debug", subtitle: "在历史页显示最近一次请求详情") {
+                    Toggle("", isOn: $settings.debugMode)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
             }
 
             SettingsCard(title: "快捷键",
@@ -538,7 +543,7 @@ private struct GlossaryPane: View {
             .frame(maxHeight: .infinity)
 
             HStack(spacing: 8) {
-                TextField("添加术语,如:MacroNet", text: $newTerm)
+                TextField("添加术语", text: $newTerm)
                     .textFieldStyle(.plain)
                     .font(.system(size: 12.5))
                     .padding(.horizontal, 9)
@@ -616,6 +621,7 @@ private struct HistoryPane: View {
     @ObservedObject var log = LastRequestLog.shared
     @State private var copiedID: UUID?
     @State private var showDebug = false
+    @State private var pendingDelete: HistoryStore.Entry?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -659,7 +665,7 @@ private struct HistoryPane: View {
                                                NSPasteboard.general.setString(entry.text, forType: .string)
                                                copiedID = entry.id
                                            },
-                                           onDelete: { history.remove(entry) })
+                                           onDelete: { pendingDelete = entry })
                             }
                         }
                     }
@@ -667,27 +673,41 @@ private struct HistoryPane: View {
                 .frame(maxHeight: .infinity)
             }
 
-            DisclosureGroup(isExpanded: $showDebug) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 8) {
-                        debugRow("发送的上下文", log.contextSummary)
-                        debugRow("术语提示", log.termHint.isEmpty ? "(无)" : log.termHint)
-                        debugRow("文字插入", log.insertTrace.isEmpty ? "(无)" : log.insertTrace)
-                        debugRow("错误", log.lastError ?? "(无)")
+            if settings.debugMode {
+                DisclosureGroup(isExpanded: $showDebug) {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 8) {
+                            debugRow("发送的上下文", log.contextSummary)
+                            debugRow("术语提示", log.termHint.isEmpty ? "(无)" : log.termHint)
+                            debugRow("文字插入", log.insertTrace.isEmpty ? "(无)" : log.insertTrace)
+                            debugRow("错误", log.lastError ?? "(无)")
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(10)
                     }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
+                    .frame(maxHeight: 130)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                } label: {
+                    Text("最近一次请求详情")
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
                 }
-                .frame(maxHeight: 130)
-                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-            } label: {
-                Text("最近一次请求详情(排查用)")
-                    .font(.system(size: 11.5))
-                    .foregroundStyle(.secondary)
             }
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 20)
+        .confirmationDialog("删除这条记录?",
+                            isPresented: Binding(get: { pendingDelete != nil },
+                                                 set: { if !$0 { pendingDelete = nil } }),
+                            presenting: pendingDelete) { entry in
+            Button("删除", role: .destructive) {
+                history.remove(entry)
+                pendingDelete = nil
+            }
+            Button("取消", role: .cancel) { pendingDelete = nil }
+        } message: { entry in
+            Text(String(entry.text.prefix(60)))
+        }
     }
 
     private func debugRow(_ title: String, _ content: String) -> some View {
@@ -705,7 +725,6 @@ private struct HistoryRow: View {
     let copied: Bool
     let onCopy: () -> Void
     let onDelete: () -> Void
-    @State private var hovering = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -726,26 +745,46 @@ private struct HistoryRow: View {
                 .font(.system(size: 10.5))
                 .foregroundStyle(.tertiary)
             }
-            Spacer()
-            if hovering || copied {
-                HStack(spacing: 6) {
-                    Button(action: onCopy) {
-                        Label(copied ? "已复制" : "复制", systemImage: copied ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 11))
-                    }
-                    .controlSize(.small)
-                    Button(action: onDelete) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 11))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
+            Spacer(minLength: 12)
+            // 按钮常驻,避免 hover 触发文字重排;复制只用图标
+            HStack(spacing: 4) {
+                IconButton(systemName: copied ? "checkmark" : "doc.on.doc",
+                           tint: copied ? .green : .secondary,
+                           help: copied ? "已复制" : "复制",
+                           action: onCopy)
+                IconButton(systemName: "trash",
+                           tint: .secondary,
+                           help: "删除",
+                           action: onDelete)
             }
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .contentShape(Rectangle())
+    }
+}
+
+/// 小尺寸图标按钮:固定占位,hover 时浮现浅色背景
+private struct IconButton: View {
+    let systemName: String
+    let tint: Color
+    let help: String
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(tint)
+                .frame(width: 24, height: 24)
+                .background(
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(hovering ? Color.primary.opacity(0.08) : .clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
         .onHover { hovering = $0 }
+        .help(help)
     }
 }
