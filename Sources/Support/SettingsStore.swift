@@ -52,7 +52,41 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    /// 编辑力度:整理模型对转录文本的改写程度
+    enum EditingEffort: String, CaseIterable, Identifiable {
+        case low, medium, high
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .low: return "低"
+            case .medium: return "中"
+            case .high: return "高"
+            }
+        }
+    }
+
+    /// 结构化程度:输出文本的组织形式
+    enum FormatLevel: String, CaseIterable, Identifiable {
+        case plain, medium, rich
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .plain: return "低"
+            case .medium: return "中"
+            case .rich: return "高"
+            }
+        }
+    }
+
     private let defaults = UserDefaults.standard
+
+    // MARK: - 个性化
+    @Published var editingEffort: EditingEffort { didSet { defaults.set(editingEffort.rawValue, forKey: "editingEffort") } }
+    @Published var formatLevel: FormatLevel { didSet { defaults.set(formatLevel.rawValue, forKey: "formatLevel") } }
 
     // MARK: - 通用
     /// 唯一的音效总开关:关掉后任何情况下都不出声
@@ -108,6 +142,8 @@ final class SettingsStore: ObservableObject {
 
     private init() {
         Self.migrateLegacyDefaultsIfNeeded(into: defaults)
+        editingEffort = EditingEffort(rawValue: defaults.string(forKey: "editingEffort") ?? "") ?? .medium
+        formatLevel = FormatLevel(rawValue: defaults.string(forKey: "formatLevel") ?? "") ?? .plain
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true
         showPanel = defaults.object(forKey: "showPanel") as? Bool ?? true
         launchAtLogin = defaults.object(forKey: "launchAtLogin") as? Bool ?? false

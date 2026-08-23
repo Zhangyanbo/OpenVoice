@@ -12,6 +12,18 @@ final class LastRequestLog: ObservableObject {
     @Published var lastErrorAt: Date?
     /// 最近一次文字插入的决策轨迹(AX/粘贴路径,由 TextInserter 写入)
     @Published var insertTrace: String = ""
+    /// 最近一次请求的完整 prompt 与回复,供设置 → 请求页查看
+    @Published var systemPrompt: String = ""
+    @Published var userPrompt: String = ""
+    @Published var transcript: String = ""
+    @Published var response: String = ""
+
+    func resetPayload() {
+        systemPrompt = ""
+        userPrompt = ""
+        transcript = ""
+        response = ""
+    }
 }
 
 /// 核心状态机:idle → recording → transcribing → idle。
@@ -231,6 +243,7 @@ final class DictationController {
         LastRequestLog.shared.contextSummary = context.summary
         LastRequestLog.shared.termHint = termHint.isEmpty ? "（无）" : termHint
         LastRequestLog.shared.timestamp = Date()
+        LastRequestLog.shared.resetPayload()
 
         // controller 与应用同生命周期,请求期间强持有以保证结果送达
         Task {
@@ -244,13 +257,19 @@ final class DictationController {
                     await MainActor.run { self.finishEmpty() }
                     return
                 }
+                LastRequestLog.shared.transcript = raw
+                let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
+                                               effort: settings.editingEffort,
+                                               format: settings.formatLevel)
+                let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
+                LastRequestLog.shared.systemPrompt = system
+                LastRequestLog.shared.userPrompt = user
 
                 // 轻量语言模型整理
                 var final = raw
                 do {
-                    final = try await client.chat(model: llmModel,
-                                                  system: Self.systemPrompt(mode: mode, context: context, terms: termHint),
-                                                  user: Self.userPrompt(mode: mode, context: context, transcript: raw))
+                    final = try await client.chat(model: llmModel, system: system, user: user)
+                    LastRequestLog.shared.response = final
                     if final.isEmpty { final = raw }
                 } catch {
                     // 只有普通听写且无选中文字时才可安全降级为原始转录;
@@ -321,7 +340,9 @@ final class DictationController {
 
     // MARK: - Prompt 组装(spec §3, §8, §13)
 
-    static func systemPrompt(mode: Mode, context: DictationContext, terms: String) -> String {
+    static func systemPrompt(mode: Mode, context: DictationContext, terms: String,
+                             effort: SettingsStore.EditingEffort = .medium,
+                             format: SettingsStore.FormatLevel = .plain) -> String {
         var lines: [String] = []
         switch mode {
         case .dictation:
@@ -352,7 +373,40 @@ final class DictationController {
         if !terms.isEmpty {
             lines.append("用户的个人术语表（专有名词以此为准的拼写/大小写）：\(terms)")
         }
+        lines.append(Self.effortSnippet(effort))
+        lines.append(Self.formatSnippet(format))
         return lines.joined(separator: "\n\n")
+    }
+
+    /// 编辑力度:对转录文本改写程度的指令
+    private static func effortSnippet(_ effort: SettingsStore.EditingEffort) -> String {
+        switch effort {
+        case .low:
+            return "编辑力度：低。只做最基础的清理——删除“呃”“嗯”等填充词、删掉重复的句子、补上标点。除此之外尽量逐字保留用户原话的措辞和句式，不要润色。"
+        case .medium:
+            return "编辑力度：中。在删除填充词和口误的基础上，把语句理顺：修正明显的语法问题、替换个别不通顺的用词，使文字通顺自然，但不改变句子结构和信息量，不增删内容。"
+        case .high:
+            return "编辑力度：高。把转录文本当作草稿，进行彻底的重写：可以重组句子、改换措辞、精简啰嗦的部分，输出表达清晰、精炼流畅的文字，只需忠实保留用户的核心意思。"
+        }
+    }
+
+    /// 结构化程度:输出文本组织形式的指令。
+    /// 用户可能同时选了「低编辑力度」和「高格式化」——此时仍必须执行结构化,
+    /// 因此显式声明本条优先于编辑力度中「保持原样/不改写」的要求。
+    private static func formatSnippet(_ format: SettingsStore.FormatLevel) -> String {
+        switch format {
+        case .plain:
+            return "格式化程度：低。保持用户说话时的自然形态：该分段时分段，但不要添加列表符号、标题或任何额外结构。"
+        case .medium:
+            return "格式化程度：中。适度结构化：当内容天然适合列举时，使用项目符号或编号列表来呈现这些列举项；其余部分保持自然段落。"
+        case .rich:
+            return """
+            格式化程度：高。对输出做充分的结构化处理，本条要求优先于其他关于保持原文形式的规则：
+            - 只要内容包含多个要点、步骤、选项或并列信息，就必须使用项目符号（- 或 •）或编号列表呈现。
+            - 内容较长时用小节标题分组；短内容也至少使用列表而不是连续的段落。
+            - 目标是让内容一目了然、便于阅读，不要把可以分条的内容挤在一段里。
+            """
+        }
     }
 
     static func userPrompt(mode: Mode, context: DictationContext, transcript: String) -> String {

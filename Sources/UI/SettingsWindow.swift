@@ -10,32 +10,38 @@ final class SettingsWindowController {
     private let nav = SettingsNav()
 
     enum Tab: String, CaseIterable {
-        case general, privacy, glossary, history
+        case general, personalization, privacy, glossary, history, request
 
         var title: String {
             switch self {
             case .general: return "通用"
+            case .personalization: return "个性化"
             case .privacy: return "隐私"
             case .glossary: return "术语表"
             case .history: return "历史"
+            case .request: return "请求"
             }
         }
 
         var icon: String {
             switch self {
             case .general: return "gearshape.fill"
+            case .personalization: return "slider.horizontal.3"
             case .privacy: return "hand.raised.fill"
             case .glossary: return "character.book.closed.fill"
             case .history: return "clock.arrow.circlepath"
+            case .request: return "arrow.up.forward.app.fill"
             }
         }
 
         var iconColor: Color {
             switch self {
             case .general: return Color(red: 0.42, green: 0.48, blue: 0.56)
+            case .personalization: return Color(red: 0.20, green: 0.72, blue: 0.55)
             case .privacy: return Color(red: 0.25, green: 0.55, blue: 0.9)
             case .glossary: return Color(red: 0.95, green: 0.61, blue: 0.19)
             case .history: return Color(red: 0.56, green: 0.45, blue: 0.86)
+            case .request: return Color(red: 0.85, green: 0.35, blue: 0.30)
             }
         }
     }
@@ -76,9 +82,11 @@ struct SettingsRootView: View {
             Group {
                 switch nav.tab {
                 case .general: GeneralPane()
+                case .personalization: PersonalizationPane()
                 case .privacy: PrivacyPane()
                 case .glossary: GlossaryPane()
                 case .history: HistoryPane()
+                case .request: RequestPane()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -293,6 +301,56 @@ private struct GeneralPane: View {
             LanguageCard()
 
             OpenAICard()
+        }
+    }
+}
+
+// MARK: - 个性化
+
+private struct PersonalizationPane: View {
+    @ObservedObject var settings = SettingsStore.shared
+
+    var body: some View {
+        PaneScroll(title: "个性化") {
+            SettingsCard(title: "编辑力度",
+                         footer: "控制整理模型对转录文本的改写程度。最低只删除填充词、重复的句子和无意义的口头语，补全标点；中等在此基础上理顺句子，但不增删内容；最高则把转录当作草稿，按原意完全重写。") {
+                SettingsRow(title: "编辑力度") {
+                    LevelSlider(low: "低", high: "高",
+                                index: Binding(
+                                    get: { Double(SettingsStore.EditingEffort.allCases.firstIndex(of: settings.editingEffort) ?? 1) },
+                                    set: { settings.editingEffort = SettingsStore.EditingEffort.allCases[Int($0)] }))
+                }
+            }
+
+            SettingsCard(title: "格式化程度",
+                         footer: "控制输出文本的组织形式。最低保持说话时的自然分段，不添加任何结构；中等在内容适合列举时使用简单的项目符号或编号；最高则用小节标题、项目符号等完整层级来组织内容。") {
+                SettingsRow(title: "格式化程度") {
+                    LevelSlider(low: "低", high: "高",
+                                index: Binding(
+                                    get: { Double(SettingsStore.FormatLevel.allCases.firstIndex(of: settings.formatLevel) ?? 0) },
+                                    set: { settings.formatLevel = SettingsStore.FormatLevel.allCases[Int($0)] }))
+                }
+            }
+        }
+    }
+}
+
+/// 三档横向滑杆，样式类似系统设置里的鼠标跟踪速度
+private struct LevelSlider: View {
+    let low: String
+    let high: String
+    let index: Binding<Double>
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Text(low)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Slider(value: index, in: 0...2, step: 1)
+                .frame(width: 150)
+            Text(high)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
         }
     }
 }
@@ -727,6 +785,111 @@ private struct HistoryPane: View {
             Text(content)
                 .font(.system(size: 11, design: .monospaced))
                 .textSelection(.enabled)
+        }
+    }
+}
+
+// MARK: - 请求
+
+private struct RequestPane: View {
+    @ObservedObject var log = LastRequestLog.shared
+    @State private var copiedSection: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("请求")
+                    .font(.system(size: 20, weight: .bold))
+                Spacer()
+                if log.timestamp != nil {
+                    Text("最近一次：\(log.timestamp!.formatted(date: .abbreviated, time: .standard))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                    Button("复制全部") { copy(allText(), id: "all") }
+                        .controlSize(.small)
+                }
+            }
+            .padding(.top, 34)
+
+            if log.timestamp == nil {
+                SettingsCard {
+                    VStack(spacing: 6) {
+                        Image(systemName: "arrow.up.forward.app")
+                            .font(.system(size: 24))
+                            .foregroundStyle(.quaternary)
+                        Text("还没有发送过请求")
+                            .font(.system(size: 12))
+                            .foregroundStyle(.tertiary)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 60)
+                }
+                .frame(maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        payloadCard("系统提示词", log.systemPrompt)
+                        payloadCard("用户提示词", log.userPrompt)
+                        payloadCard("转录原文", log.transcript)
+                        payloadCard("模型回复", log.response.isEmpty ? "（无，请求失败或未到达整理阶段）" : log.response)
+                        payloadCard("发送的上下文", log.contextSummary)
+                        payloadCard("术语提示", log.termHint.isEmpty ? "（无）" : log.termHint)
+                        payloadCard("文字插入", log.insertTrace.isEmpty ? "（无）" : log.insertTrace)
+                        if let error = log.lastError {
+                            payloadCard("错误", error)
+                        }
+                    }
+                }
+                .frame(maxHeight: .infinity)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.bottom, 20)
+    }
+
+    private func payloadCard(_ title: String, _ content: String) -> some View {
+        SettingsCard(title: title) {
+            HStack {
+                Spacer()
+                Button {
+                    copy(content, id: title)
+                } label: {
+                    Label(copiedSection == title ? "已复制" : "复制",
+                          systemImage: copiedSection == title ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 11))
+                        .labelStyle(.titleAndIcon)
+                }
+                .controlSize(.small)
+                .buttonStyle(.plain)
+                .foregroundStyle(copiedSection == title ? Color.green : Color.secondary)
+                .padding(.horizontal, 12)
+                .padding(.top, 6)
+            }
+            ScrollView {
+                Text(content.isEmpty ? "（空）" : content)
+                    .font(.system(size: 11, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(10)
+            }
+            .frame(maxHeight: 160)
+        }
+    }
+
+    private func allText() -> String {
+        var parts: [String] = []
+        parts.append("【系统提示词】\n\(log.systemPrompt)")
+        parts.append("【用户提示词】\n\(log.userPrompt)")
+        parts.append("【转录原文】\n\(log.transcript)")
+        parts.append("【模型回复】\n\(log.response)")
+        return parts.joined(separator: "\n\n")
+    }
+
+    private func copy(_ text: String, id: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        copiedSection = id
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+            if copiedSection == id { copiedSection = nil }
         }
     }
 }
