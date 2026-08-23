@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import Combine
 import ServiceManagement
 
@@ -23,6 +24,32 @@ final class SettingsStore: ObservableObject {
             case .system: return tr("跟随系统")
             case .zhHans: return "中文"
             case .en: return "English"
+            }
+        }
+    }
+
+    /// 界面外观。跟随系统时由系统深浅色决定。
+    enum AppearanceMode: String, CaseIterable, Identifiable {
+        case system
+        case light
+        case dark
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .system: return tr("跟随系统")
+            case .light: return tr("浅色")
+            case .dark: return tr("深色")
+            }
+        }
+
+        /// 对应的 macOS 外观名;.system 时返回 nil 表示不干预
+        var nsAppearanceName: NSAppearance.Name? {
+            switch self {
+            case .system: return nil
+            case .light: return NSAppearance.Name.aqua
+            case .dark: return NSAppearance.Name.darkAqua
             }
         }
     }
@@ -110,6 +137,18 @@ final class SettingsStore: ObservableObject {
 
     // MARK: - 语言
     @Published var appLanguage: AppLanguage { didSet { defaults.set(appLanguage.rawValue, forKey: "appLanguage") } }
+    /// 外观模式。切换时立即应用到整个应用(NSApp.appearance),logo 随深浅色自动黑白切换。
+    @Published var appearanceMode: AppearanceMode {
+        didSet {
+            defaults.set(appearanceMode.rawValue, forKey: "appearanceMode")
+            applyAppearance()
+        }
+    }
+
+    /// 把当前外观模式应用到整个应用;启动时也需手动调用一次(init 不触发 didSet)
+    func applyAppearance() {
+        NSApp?.appearance = appearanceMode.nsAppearanceName.flatMap { NSAppearance(named: $0) }
+    }
 
     // MARK: - 个性化
     @Published var editingEffort: EditingEffort { didSet { defaults.set(editingEffort.rawValue, forKey: "editingEffort") } }
@@ -170,6 +209,7 @@ final class SettingsStore: ObservableObject {
     private init() {
         Self.migrateLegacyDefaultsIfNeeded(into: defaults)
         appLanguage = AppLanguage(rawValue: defaults.string(forKey: "appLanguage") ?? "") ?? .system
+        appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: "appearanceMode") ?? "") ?? .system
         editingEffort = EditingEffort(rawValue: defaults.string(forKey: "editingEffort") ?? "") ?? .medium
         formatLevel = FormatLevel(rawValue: defaults.string(forKey: "formatLevel") ?? "") ?? .plain
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true

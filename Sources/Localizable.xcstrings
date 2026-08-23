@@ -531,6 +531,16 @@
         }
       }
     },
+    "外观": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appearance"
+          }
+        }
+      }
+    },
     "如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。": {
       "localizations": {
         "en": {
@@ -911,6 +921,16 @@
         }
       }
     },
+    "显示更多": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show More"
+          }
+        }
+      }
+    },
     "显示语音悬浮条": {
       "localizations": {
         "en": {
@@ -1097,6 +1117,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "French"
+          }
+        }
+      }
+    },
+    "浅色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Light"
+          }
+        }
+      }
+    },
+    "深色": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dark"
           }
         }
       }
@@ -1481,6 +1521,16 @@
         }
       }
     },
+    "转录失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcription Failed"
+          }
+        }
+      }
+    },
     "转录失败：%@": {
       "localizations": {
         "en": {
@@ -1567,6 +1617,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Welcome Guide…"
+          }
+        }
+      }
+    },
+    "重新转录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-transcribe"
           }
         }
       }

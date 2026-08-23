@@ -1,6 +1,19 @@
 import Foundation
 import AppKit
 
+/// 历史栏「重新转录」请求的载荷
+struct RetranscribeRequest {
+    /// 要更新的历史条目
+    let entryID: UUID
+    let wav: Data
+    let kind: String
+    let target: String?
+}
+
+extension Notification.Name {
+    static let retranscribeRequest = Notification.Name("retranscribeRequest")
+}
+
 /// 记录上次实际发送给 OpenAI 的上下文与术语提示,供"查看本次发送的上下文"(spec §18)。
 final class LastRequestLog: ObservableObject {
     static let shared = LastRequestLog()
@@ -294,7 +307,9 @@ final class DictationController {
                 }
 
                 let text = final
-                await MainActor.run { self.insert(text: text, target: target, mode: mode, context: context) }
+                await MainActor.run {
+                    self.insert(text: text, target: target, mode: mode, context: context, wav: wav)
+                }
             } catch {
                 await MainActor.run {
                     self.transcriptionFailed(wav: wav, mode: mode, context: context,
@@ -304,7 +319,15 @@ final class DictationController {
         }
     }
 
-    private func insert(text: String, target: InsertionTarget?, mode: Mode, context: DictationContext) {
+    private func retryInfo(for mode: Mode) -> HistoryStore.RetryInfo {
+        switch mode {
+        case .dictation: return HistoryStore.RetryInfo(kind: "dictation", target: nil)
+        case .translation(let target): return HistoryStore.RetryInfo(kind: "translation", target: target)
+        }
+    }
+
+    private func insert(text: String, target: InsertionTarget?, mode: Mode,
+                        context: DictationContext, wav: Data) {
         state = .idle
         if settings.keepHistory {
             let modeLabel: String
@@ -312,7 +335,8 @@ final class DictationController {
             case .dictation: modeLabel = tr("语音")
             case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
             }
-            HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName)
+            HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName,
+                                    failed: false, wav: wav, retry: retryInfo(for: mode))
         }
         // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
         panel.hide()
@@ -341,7 +365,96 @@ final class DictationController {
         NSLog("转录失败：\(reason)")
         LastRequestLog.shared.lastError = reason
         LastRequestLog.shared.lastErrorAt = Date()
+        // 失败条目也进历史(带录音),用户可从历史栏重新转录,录音不会彻底丢失
+        if settings.keepHistory {
+            let modeLabel: String
+            switch mode {
+            case .dictation: modeLabel = tr("语音")
+            case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
+            }
+            HistoryStore.shared.add(text: "", mode: modeLabel, appName: context.appName,
+                                    failed: true, wav: wav, retry: retryInfo(for: mode))
+        }
         panel.showError(tr("转录失败：%@", reason))
+    }
+
+    // MARK: - 历史栏重新转录
+
+    /// 用历史条目保留的录音原地重跑转录:不弹悬浮条,条目行内转圈。
+    /// 成功 → 原地更新正文;任何失败 → 条目保持原样(旧内容绝不丢失)。
+    func retranscribe(_ request: RetranscribeRequest) {
+        let store = HistoryStore.shared
+        func finishWithFailure(_ error: Error?) {
+            DispatchQueue.main.async {
+                self.state = .idle
+                store.setRetranscribing(nil)
+                if let error {
+                    let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    NSLog("重新转录失败：\(reason)")
+                    LastRequestLog.shared.lastError = reason
+                    LastRequestLog.shared.lastErrorAt = Date()
+                }
+            }
+        }
+
+        guard case .idle = state else { finishWithFailure(nil); return }
+        guard KeychainStore.loadAPIKey() != nil else {
+            store.setRetranscribing(nil)
+            OnboardingWindowController.shared.show(step: .apiKey)
+            return
+        }
+        let mode: Mode
+        if request.kind == "translation" {
+            mode = .translation(target: request.target ?? settings.defaultTargetLanguage)
+        } else {
+            mode = .dictation
+        }
+        let (context, _) = AXContextReader.capture(settings: settings)
+        state = .transcribing
+
+        Task {
+            // 转录+整理;返回空串表示转录结果为空。失败时抛错。
+            func run() async throws -> String {
+                let termHint = glossary.promptHint()
+                let client = try OpenAIClient.fromKeychain()
+                let raw = try await client.transcribe(
+                    wav: request.wav,
+                    model: settings.effectiveTranscribeModel,
+                    prompt: termHint.isEmpty ? nil : termHint,
+                    language: settings.recognitionLanguage)
+                guard !raw.isEmpty else { return "" }
+                let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
+                                               effort: settings.editingEffort,
+                                               format: settings.formatLevel)
+                let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
+                do {
+                    let polished = try await client.chat(model: settings.effectiveLLMModel,
+                                                         system: system, user: user)
+                    return polished.isEmpty ? raw : polished
+                } catch {
+                    // 与主流程一致:仅普通听写可安全回落到原始转录,翻译模式一律失败
+                    if case .dictation = mode { return raw } else { throw error }
+                }
+            }
+
+            do {
+                let text = try await run()
+                await MainActor.run {
+                    self.state = .idle
+                    store.setRetranscribing(nil)
+                    guard !text.isEmpty else { return } // 转录为空:条目保持原样
+                    store.updateEntry(request.entryID) { entry in
+                        entry.text = text
+                        entry.failed = false
+                        entry.appName = context.appName ?? entry.appName
+                        entry.retry = self.retryInfo(for: mode)
+                    }
+                    TextInserter.insert(text, target: nil) { _ in }
+                }
+            } catch {
+                finishWithFailure(error)
+            }
+        }
     }
 
     // MARK: - Prompt 组装(spec §3, §8, §13)

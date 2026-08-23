@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var cancellables = Set<AnyCancellable>()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        SettingsStore.shared.applyAppearance()
         setupStatusItem()
         setupHotkeys()
         setupAutoLearnToast()
@@ -30,6 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         NotificationCenter.default.addObserver(forName: .openSettingsRequest, object: nil, queue: .main) { _ in
             SettingsWindowController.shared.show()
+        }
+
+        // 历史栏「重新转录」:用保留的录音原地重跑转录流程
+        NotificationCenter.default.addObserver(forName: .retranscribeRequest, object: nil, queue: .main) { [weak self] note in
+            guard let request = note.object as? RetranscribeRequest else { return }
+            self?.controller.retranscribe(request)
         }
 
         OnboardingWindowController.shared.onAccessibilityGranted = { [weak self] in

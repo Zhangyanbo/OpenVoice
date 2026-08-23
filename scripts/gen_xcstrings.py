@@ -28,6 +28,12 @@ PAIRS = {
     "翻译": "Translation",
     "%@ + 左 Shift": "%@ + Left Shift",
     "跟随系统": "Follow System",
+    "外观": "Appearance",
+    "浅色": "Light",
+    "深色": "Dark",
+    "显示更多": "Show More",
+    "转录失败": "Transcription Failed",
+    "重新转录": "Re-transcribe",
     # 个性化页
     "编辑力度": "Editing Effort",
     "控制整理模型对转录文本的改写程度。最低只删除填充词、重复的句子和无意义的口头语，补全标点；中等在此基础上理顺句子，但不增删内容；最高则把转录当作草稿，按原意完全重写。":

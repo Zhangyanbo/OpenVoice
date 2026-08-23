@@ -272,6 +272,15 @@ private struct GeneralPane: View {
                     }
                 }
                 CardDivider()
+                SettingsRow(title: tr("外观")) {
+                    Picker("", selection: $settings.appearanceMode) {
+                        ForEach(SettingsStore.AppearanceMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .labelsHidden().fixedSize()
+                }
+                CardDivider()
                 SettingsRow(title: "Debug", subtitle: tr("在历史页显示最近一次请求详情")) {
                     Toggle("", isOn: $settings.debugMode)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
@@ -709,6 +718,8 @@ private struct HistoryPane: View {
     @State private var copiedID: UUID?
     @State private var showDebug = false
     @State private var pendingDelete: HistoryStore.Entry?
+    /// 默认只渲染最近 10 条,点击「显示更多」再加载 20 条,避免长列表卡顿
+    @State private var visibleCount = 10
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -743,21 +754,42 @@ private struct HistoryPane: View {
                 SettingsCard {
                     ScrollView {
                         VStack(spacing: 0) {
-                            ForEach(Array(history.entries.enumerated()), id: \.element.id) { index, entry in
+                            let visible = history.entries.prefix(visibleCount)
+                            ForEach(Array(visible.enumerated()), id: \.element.id) { index, entry in
                                 if index > 0 { CardDivider() }
                                 HistoryRow(entry: entry,
                                            copied: copiedID == entry.id,
+                                           canRetranscribe: history.canRetranscribe(entry.id),
+                                           isRetranscribing: history.retranscribingID == entry.id,
                                            onCopy: {
                                                NSPasteboard.general.clearContents()
                                                NSPasteboard.general.setString(entry.text, forType: .string)
                                                copiedID = entry.id
                                            },
-                                           onDelete: { pendingDelete = entry })
+                                           onDelete: { pendingDelete = entry },
+                                           onRetranscribe: {
+                                               // 一次只跑一个重新转录;条目原地转圈,不再先删除
+                                               guard history.retranscribingID == nil,
+                                                     let wav = history.recordingData(for: entry.id) else { return }
+                                               history.setRetranscribing(entry.id)
+                                               let request = RetranscribeRequest(
+                                                   entryID: entry.id,
+                                                   wav: wav,
+                                                   kind: entry.retry?.kind ?? "dictation",
+                                                   target: entry.retry?.target)
+                                               NotificationCenter.default.post(name: .retranscribeRequest,
+                                                                               object: request)
+                                           })
                             }
                         }
                     }
                 }
                 .frame(maxHeight: .infinity)
+
+                if history.entries.count > visibleCount {
+                    Button(tr("显示更多")) { visibleCount += 20 }
+                        .frame(maxWidth: .infinity)
+                }
             }
 
             if settings.debugMode {
@@ -913,18 +945,30 @@ private struct RequestPane: View {
 private struct HistoryRow: View {
     let entry: HistoryStore.Entry
     let copied: Bool
+    /// 该条目是否保留了可重新转录的录音(由 HistoryStore 统一管理)
+    let canRetranscribe: Bool
+    /// 该条目正在重新转录(显示旋转指示)
+    let isRetranscribing: Bool
     let onCopy: () -> Void
     let onDelete: () -> Void
+    var onRetranscribe: (() -> Void)? = nil
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
-                // 只显示前两行,超出部分以尾部省略号标记;复制取的是完整内容
-                Text(entry.text)
-                    .font(.system(size: 12.5))
-                    .lineLimit(2)
-                    .truncationMode(.tail)
-                    .textSelection(.enabled)
+                // 只显示前两行,超出部分以尾部省略号标记;完整内容用旁边的复制按钮获取。
+                // 不开 textSelection:点击选中会导致文本重排(省略号消失、整段展开盖住 meta 信息)
+                if entry.failed {
+                    Text(tr("转录失败"))
+                        .font(.system(size: 12.5))
+                        .foregroundStyle(.red)
+                } else {
+                    // 预览忽略换行符,避免第一行很短时浪费宝贵的两行空间
+                    Text(entry.text.replacingOccurrences(of: "\n", with: " "))
+                        .font(.system(size: 12.5))
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                }
                 HStack(spacing: 6) {
                     Text(entry.date.formatted(date: .abbreviated, time: .shortened))
                     Text("·")
@@ -940,10 +984,25 @@ private struct HistoryRow: View {
             Spacer(minLength: 12)
             // 按钮常驻,避免 hover 触发文字重排;复制只用图标
             HStack(spacing: 4) {
-                IconButton(systemName: copied ? "checkmark" : "doc.on.doc",
-                           tint: copied ? .green : .secondary,
-                           help: copied ? tr("已复制") : tr("复制"),
-                           action: onCopy)
+                // 顺序固定:重新转录、复制、删除 —— 无论某行缺哪个按钮,右侧删除的位置都不变
+                // 只有保留了录音的条目才有重新转录(最近 10 条)
+                if isRetranscribing {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 24, height: 24)
+                } else if canRetranscribe {
+                    IconButton(systemName: "arrow.clockwise",
+                               tint: .secondary,
+                               help: tr("重新转录"),
+                               action: { onRetranscribe?() })
+                }
+                // 失败行没有可复制的正文
+                if !entry.failed {
+                    IconButton(systemName: copied ? "checkmark" : "doc.on.doc",
+                               tint: copied ? .green : .secondary,
+                               help: copied ? tr("已复制") : tr("复制"),
+                               action: onCopy)
+                }
                 IconButton(systemName: "trash",
                            tint: .secondary,
                            help: tr("删除"),
