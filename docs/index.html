@@ -316,15 +316,10 @@
     <section id="privacy">
       <h2>隐私声明</h2>
       <p class="section-sub">
-        隐私原则只有一条：每次只把当前语音请求所需的音频和少量文本上下文发送给 OpenAI，其余内容全部留在本机。
+        OpenVoice 没有中央服务器，也没有账号系统。除了调用 OpenAI API 时发送的当次录音和少量文字上下文，
+        其余信息——API Key、术语表、设置、历史记录——都只保存在这台 Mac 上。
+        上下文相关的功能可以在 设置 → 隐私 中关闭。
       </p>
-      <ul class="privacy-list">
-        <li><span class="mark">✓</span><span><strong>你的 API Key 只保存在 macOS 钥匙串</strong>——不进日志、不进配置文件、不上传到任何第三方服务器。</span></li>
-        <li><span class="mark">✓</span><span><strong>音频只发往 OpenAI 官方 API</strong>——OpenVoice 本身没有服务器，也没有账号系统，看不到你的任何数据。</span></li>
-        <li><span class="mark">✓</span><span><strong>术语表、设置、历史全部存本机</strong>——没有云同步，没有遥测分析。</span></li>
-        <li><span class="mark">✓</span><span><strong>上下文读取只用 Accessibility API</strong>——不截图、不 OCR、不申请屏幕录制权限、不做键盘记录。</span></li>
-        <li><span class="mark">✓</span><span><strong>一切可关闭</strong>——上下文相关功能可在 设置 → 隐私 中逐项关掉；关掉后语音输入照常工作。</span></li>
-      </ul>
     </section>
   </div>
 </main>
