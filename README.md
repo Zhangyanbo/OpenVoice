@@ -5,11 +5,6 @@
 <h1 align="center">OpenVoice</h1>
 
 <p align="center">
-  macOS 上的 AI 语音输入法。<br/>
-  把光标放到任意地方，按下 <b>Fn</b> 说话，再按一次，文字直接出现。
-</p>
-
-<p align="center">
   无账号、无服务器——用你自己的 OpenAI API Key，音频直接从你的 Mac 发给 OpenAI，<br/>
   其余一切（Key、术语表、历史）只保存在本机。
 </p>
