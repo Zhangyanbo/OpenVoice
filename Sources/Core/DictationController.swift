@@ -53,8 +53,7 @@ final class DictationController {
     private var session: (mode: Mode, context: DictationContext, target: InsertionTarget?)?
 
     // MARK: - 最长录音时长
-    /// 测试值 70 秒;验证倒计时交互后改回 600(10 分钟)
-    private static let maxRecordingDuration: TimeInterval = 70
+    private static let maxRecordingDuration: TimeInterval = 600
     /// 剩余时间进入此窗口后,悬浮条的「正在聆听」变为倒计时
     private static let countdownWarningWindow: TimeInterval = 60
     private var recordingTimer: Timer?
