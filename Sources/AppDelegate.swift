@@ -61,7 +61,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
-            button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "OpenVoiceInput")
+            // 用户提供的纯白透明底图标作为 template image:
+            // 系统按 alpha 通道着色,自动适配菜单栏深浅色与选中态
+            if let path = Bundle.main.path(forResource: "icon_design_bar", ofType: "png"),
+               let image = NSImage(contentsOfFile: path) {
+                image.size = NSSize(width: 18, height: 18)
+                image.isTemplate = true
+                button.image = image
+            } else {
+                button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "OpenVoiceInput")
+            }
         }
 
         let menu = NSMenu()

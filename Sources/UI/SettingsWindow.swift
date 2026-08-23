@@ -92,13 +92,14 @@ struct SettingsRootView: View {
             // 给交通灯留位
             Spacer().frame(height: 40)
 
-            HStack(spacing: 8) {
-                AppMark(size: 24)
+            // 图标本身带发光边距,视觉重心偏内,放大一档并收紧间距
+            HStack(spacing: 5) {
+                AppMark(size: 30)
                 Text("OpenVoiceInput")
                     .font(.system(size: 13, weight: .semibold))
             }
-            .padding(.horizontal, 10)
-            .padding(.bottom, 14)
+            .padding(.leading, 5)
+            .padding(.bottom, 12)
 
             ForEach(SettingsWindowController.Tab.allCases, id: \.self) { tab in
                 SidebarItem(tab: tab, selected: nav.tab == tab) {

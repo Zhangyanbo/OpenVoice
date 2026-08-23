@@ -28,8 +28,8 @@ targets:
             done
             iconutil -c icns "$ICONSET" -o "$APP_RES/AppIcon.icns"
           fi
-          # 透明底图标(设置/引导页内使用),存在才拷贝
-          for f in icon_transparent_white icon_transparent_black; do
+          # 界面内使用的透明底图标 + 菜单栏模板图标,存在才拷贝
+          for f in icon_design_white icon_design_black icon_design_bar; do
             if [ -f "$SRCROOT/icon/$f.png" ]; then
               cp "$SRCROOT/icon/$f.png" "$APP_RES/$f.png"
             fi
