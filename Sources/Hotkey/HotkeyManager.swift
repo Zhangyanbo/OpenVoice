@@ -28,6 +28,10 @@ final class HotkeyManager {
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
+
+    /// tap 是否创建成功。没有辅助功能权限时创建会失败,
+    /// 外部据此在权限恢复后重建(见 AppDelegate 的看门狗)
+    var isActive: Bool { eventTap != nil }
     private let settings = SettingsStore.shared
 
     // 按键状态

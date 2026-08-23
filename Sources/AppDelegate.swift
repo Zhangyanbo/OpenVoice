@@ -1,16 +1,20 @@
 import AppKit
 
 /// 菜单栏应用(LSUIElement,无 Dock 图标)。
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let hotkeys = HotkeyManager()
     private let controller = DictationController()
+    private var tapWatchdog: Timer?
+    private var startItem: NSMenuItem!
+    private var translateItem: NSMenuItem!
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupMainMenu()
         setupStatusItem()
         setupHotkeys()
         setupAutoLearnToast()
+        startTapWatchdog()
 
         NotificationCenter.default.addObserver(forName: .openSettingsRequest, object: nil, queue: .main) { _ in
             SettingsWindowController.shared.show()
@@ -74,8 +78,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         let menu = NSMenu()
-        menu.addItem(withTitle: "开始语音输入", action: #selector(startDictation), keyEquivalent: "").target = self
-        menu.addItem(withTitle: "开始翻译输入", action: #selector(startTranslation), keyEquivalent: "").target = self
+        menu.delegate = self
+        startItem = menu.addItem(withTitle: "开始语音输入", action: #selector(startDictation), keyEquivalent: "")
+        startItem.target = self
+        translateItem = menu.addItem(withTitle: "开始翻译输入", action: #selector(startTranslation), keyEquivalent: "")
+        translateItem.target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "设置…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(withTitle: "转录历史…", action: #selector(openHistory), keyEquivalent: "").target = self
@@ -85,14 +92,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusItem.menu = menu
     }
 
+    /// 录音中把「开始」项换成「停止」,保证没有快捷键(如权限异常时)也能停下来
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        let recording = controller.isRecording
+        startItem.title = recording ? "停止录音并转录" : "开始语音输入"
+        translateItem.isHidden = recording
+    }
+
     @objc private func startDictation() {
-        // 从菜单触发时,焦点会短暂在菜单上;稍等让焦点回到目标 App
+        // 停止不需要焦点,立即执行
+        if controller.isRecording {
+            controller.toggleDictation()
+            return
+        }
+        // 从菜单触发开始时,焦点会短暂在菜单上;稍等让焦点回到目标 App
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.controller.toggleDictation()
         }
     }
 
     @objc private func startTranslation() {
+        guard !controller.isRecording else { return }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
             self?.controller.toggleTranslation()
         }
@@ -125,6 +145,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
         hotkeys.start()
+    }
+
+    /// 事件 tap 看门狗:没有辅助功能权限时 tap 创建会静默失败,
+    /// 用户事后在系统设置里授权也不会有任何回调 —— 必须轮询重建,
+    /// 否则 Fn 在重启 app 之前一直失灵(改名丢权限后踩过的坑)
+    private func startTapWatchdog() {
+        tapWatchdog = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
+            guard let self else { return }
+            if !self.hotkeys.isActive && Permissions.accessibilityGranted {
+                self.hotkeys.restart()
+            }
+        }
     }
 
     // MARK: - 自动学习提示(spec §12)
