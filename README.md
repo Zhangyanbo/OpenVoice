@@ -41,8 +41,8 @@ open build/Build/Products/Debug/OpenVoiceInput.app
 
 ### 常见问题
 
-- **快捷键突然失灵 / 读不到上下文**:本地构建是 ad-hoc 签名,重新编译后系统可能吊销权限。执行
-  `tccutil reset Accessibility com.openvoiceinput.app` 后重新授权。
+- **快捷键突然失灵 / 读不到上下文**(系统设置里开关却是开的):TCC 里残留了旧签名的授权记录。执行
+  `tccutil reset Accessibility com.openvoiceinput.app` 后重新授权。工程默认用本机 Developer ID 证书签名以保持签名稳定;若你的机器没有证书,把 `project.yml` 里的 `CODE_SIGN_IDENTITY` 改回 `"-"`(ad-hoc),但每次重编译后都需要重新授权。
 - **某些 App 里无法直接插入**:自动降级为剪贴板粘贴;两者都不行时结果会留在剪贴板并提示。
 
 ## 隐私

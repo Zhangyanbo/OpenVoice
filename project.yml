@@ -22,8 +22,12 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openvoiceinput.app
         SWIFT_VERSION: "5.0"
+        # 稳定签名身份:ad-hoc("-")每次构建签名都变,TCC 会把新构建当成
+        # 另一个 App,导致每次重编译后辅助功能/麦克风权限失效。
+        # 没有此证书的贡献者改回 "-",但要接受每次重编译后 tccutil reset 重授权。
         CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_IDENTITY: "Developer ID Application"
+        DEVELOPMENT_TEAM: CYKTJH6DJM
         ENABLE_HARDENED_RUNTIME: NO
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES
