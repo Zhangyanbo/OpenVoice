@@ -9,10 +9,13 @@ targets:
     platform: macOS
     sources:
       - Sources
+      - path: Resources
+        buildPhase: resources
     info:
       path: Support/Info.plist
       properties:
         CFBundleDisplayName: OpenVoiceInput
+        CFBundleIconFile: AppIcon
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
         LSUIElement: true
