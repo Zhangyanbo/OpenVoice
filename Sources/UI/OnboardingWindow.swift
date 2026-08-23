@@ -25,7 +25,7 @@ final class OnboardingWindowController {
             )
             let hosting = NSHostingController(rootView: view)
             let window = NSWindow(contentViewController: hosting)
-            window.title = "欢迎使用 OpenVoiceInput"
+            window.title = "欢迎使用 OpenVoice"
             window.styleMask = [.titled, .closable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
@@ -80,7 +80,7 @@ private struct OnboardingView: View {
             VStack(spacing: 16) {
                 AppMark(size: 72)
                     .padding(.top, 12)
-                Text("OpenVoiceInput").font(.system(size: 24, weight: .bold))
+                Text("OpenVoice").font(.system(size: 24, weight: .bold))
                 Text("把光标放到任意地方,按 Fn 说话,再按 Fn,\n文字直接出现。")
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)

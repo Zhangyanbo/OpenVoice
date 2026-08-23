@@ -107,6 +107,7 @@ final class SettingsStore: ObservableObject {
     var defaultTargetLanguage: String { targetLanguages.first ?? "英语" }
 
     private init() {
+        Self.migrateLegacyDefaultsIfNeeded(into: defaults)
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true
         showPanel = defaults.object(forKey: "showPanel") as? Bool ?? true
         launchAtLogin = defaults.object(forKey: "launchAtLogin") as? Bool ?? false
@@ -138,6 +139,18 @@ final class SettingsStore: ObservableObject {
 
     func clearPanelOrigin() {
         defaults.removeObject(forKey: "panelOrigin")
+    }
+
+    /// 应用由 com.openvoiceinput.app 改名 com.openvoice.app 后,
+    /// UserDefaults 域随 Bundle ID 变化,首次启动把旧设置整体搬过来
+    private static func migrateLegacyDefaultsIfNeeded(into defaults: UserDefaults) {
+        guard defaults.object(forKey: "onboardingDone") == nil else { return }
+        let legacyPlist = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Preferences/com.openvoiceinput.app.plist")
+        guard let dict = NSDictionary(contentsOf: legacyPlist) as? [String: Any] else { return }
+        for (key, value) in dict {
+            defaults.set(value, forKey: key)
+        }
     }
 
     private func applyLaunchAtLogin() {

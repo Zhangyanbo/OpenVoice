@@ -45,7 +45,7 @@ final class SettingsWindowController {
             let content = SettingsRootView(nav: nav)
             let hosting = NSHostingController(rootView: content)
             let window = NSWindow(contentViewController: hosting)
-            window.title = "OpenVoiceInput 设置"
+            window.title = "OpenVoice 设置"
             window.styleMask = [.titled, .closable, .miniaturizable, .fullSizeContentView]
             window.titlebarAppearsTransparent = true
             window.titleVisibility = .hidden
@@ -95,7 +95,7 @@ struct SettingsRootView: View {
             // 头部:大图标居中竖排,不拘泥于「左图右字」
             VStack(spacing: 2) {
                 AppMark(size: 64)
-                Text("OpenVoiceInput")
+                Text("OpenVoice")
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(.secondary)
             }

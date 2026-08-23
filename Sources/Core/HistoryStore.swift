@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-/// 转录历史,只存本地(~/Library/Application Support/OpenVoiceInput/history.json)。
+/// 转录历史,只存本地(~/Library/Application Support/OpenVoice/history.json)。
 /// 方便用户回头复制某次转录结果;可在设置中关闭或一键清空。
 final class HistoryStore: ObservableObject {
     struct Entry: Codable, Identifiable {
@@ -18,12 +18,7 @@ final class HistoryStore: ObservableObject {
 
     @Published private(set) var entries: [Entry] = []
 
-    private let fileURL: URL = {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("OpenVoiceInput", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("history.json")
-    }()
+    private let fileURL = AppPaths.supportDirectory.appendingPathComponent("history.json")
 
     private init() {
         if let data = try? Data(contentsOf: fileURL),

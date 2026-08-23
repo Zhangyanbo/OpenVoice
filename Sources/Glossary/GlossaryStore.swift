@@ -2,7 +2,7 @@ import Foundation
 import Combine
 
 /// 个人术语表,只存本地(spec §9)。
-/// JSON 持久化在 ~/Library/Application Support/OpenVoiceInput/glossary.json
+/// JSON 持久化在 ~/Library/Application Support/OpenVoice/glossary.json
 final class GlossaryStore: ObservableObject {
     struct Term: Codable, Identifiable, Equatable {
         var id = UUID()
@@ -18,12 +18,7 @@ final class GlossaryStore: ObservableObject {
 
     @Published private(set) var terms: [Term] = []
 
-    private let fileURL: URL = {
-        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("OpenVoiceInput", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("glossary.json")
-    }()
+    private let fileURL = AppPaths.supportDirectory.appendingPathComponent("glossary.json")
 
     private init() {
         load()

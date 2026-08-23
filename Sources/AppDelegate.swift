@@ -37,7 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "关闭窗口", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
-        appMenu.addItem(withTitle: "退出 OpenVoiceInput", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "退出 OpenVoice", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
         mainMenu.addItem(appItem)
 
@@ -69,7 +69,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 image.isTemplate = true
                 button.image = image
             } else {
-                button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "OpenVoiceInput")
+                button.image = NSImage(systemSymbolName: "mic.fill", accessibilityDescription: "OpenVoice")
             }
         }
 
@@ -81,7 +81,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "转录历史…", action: #selector(openHistory), keyEquivalent: "").target = self
         menu.addItem(withTitle: "重新打开欢迎引导", action: #selector(openOnboarding), keyEquivalent: "").target = self
         menu.addItem(.separator())
-        menu.addItem(withTitle: "退出 OpenVoiceInput", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        menu.addItem(withTitle: "退出 OpenVoice", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         statusItem.menu = menu
     }
 

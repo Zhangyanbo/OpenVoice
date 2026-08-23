@@ -1,10 +1,10 @@
-name: OpenVoiceInput
+name: OpenVoice
 options:
   createIntermediateGroups: true
   deploymentTarget:
     macOS: "14.0"
 targets:
-  OpenVoiceInput:
+  OpenVoice:
     type: application
     platform: macOS
     sources:
@@ -37,7 +37,7 @@ targets:
     info:
       path: Support/Info.plist
       properties:
-        CFBundleDisplayName: OpenVoiceInput
+        CFBundleDisplayName: OpenVoice
         CFBundleIconFile: AppIcon
         CFBundleShortVersionString: "0.1.0"
         CFBundleVersion: "1"
@@ -46,7 +46,7 @@ targets:
         NSHumanReadableCopyright: "Open source, MIT License"
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.openvoiceinput.app
+        PRODUCT_BUNDLE_IDENTIFIER: com.openvoice.app
         SWIFT_VERSION: "5.0"
         # 稳定签名身份:ad-hoc("-")每次构建签名都变,TCC 会把新构建当成
         # 另一个 App,导致每次重编译后辅助功能/麦克风权限失效。

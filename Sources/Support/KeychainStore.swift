@@ -3,10 +3,33 @@ import Security
 
 /// API Key 只进 Keychain。不写普通配置文件、不进日志、不进错误信息。
 enum KeychainStore {
-    private static let service = "com.openvoiceinput.app"
+    private static let service = "com.openvoice.app"
+    /// 改名前的旧条目,首次读取时自动迁移
+    private static let legacyService = "com.openvoiceinput.app"
     private static let account = "openai-api-key"
 
     static func saveAPIKey(_ key: String) -> Bool {
+        save(key, service: service)
+    }
+
+    static func loadAPIKey() -> String? {
+        if let key = load(service: service) { return key }
+        // 迁移旧条目
+        if let legacy = load(service: legacyService) {
+            _ = save(legacy, service: service)
+            delete(service: legacyService)
+            return legacy
+        }
+        return nil
+    }
+
+    static func deleteAPIKey() {
+        delete(service: service)
+    }
+
+    // MARK: - 底层操作
+
+    private static func save(_ key: String, service: String) -> Bool {
         let data = Data(key.utf8)
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -20,7 +43,7 @@ enum KeychainStore {
         return SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess
     }
 
-    static func loadAPIKey() -> String? {
+    private static func load(service: String) -> String? {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
@@ -35,7 +58,7 @@ enum KeychainStore {
         return key
     }
 
-    static func deleteAPIKey() {
+    private static func delete(service: String) {
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
