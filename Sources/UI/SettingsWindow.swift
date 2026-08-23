@@ -572,10 +572,7 @@ private struct GlossaryPane: View {
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
 
-            Toggle("从修改中自动学习:语音输入后你立即手动纠正的词,会自动加入术语表", isOn: $settings.autoLearn)
-                .toggleStyle(.switch)
-                .controlSize(.small)
-                .font(.system(size: 12))
+            // 「从修改中自动学习」功能尚未打磨好,暂不提供开关(功能已停用)
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 20)

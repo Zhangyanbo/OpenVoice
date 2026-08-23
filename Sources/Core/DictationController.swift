@@ -112,19 +112,22 @@ final class DictationController {
 
     // MARK: - 流程
 
+    /// 前置条件缺什么就弹出引导里对应的单页(带说明与授权按钮),
+    /// 而不是突兀的系统警告框 —— 用户能看懂为什么需要、点一下就能开
     private func start(mode: Mode) {
         guard KeychainStore.loadAPIKey() != nil else {
-            showKeyAlert()
+            OnboardingWindowController.shared.show(step: .apiKey)
             return
         }
         guard Permissions.accessibilityGranted else {
-            Permissions.showAccessibilityAlert()
+            Permissions.promptAccessibility()
+            OnboardingWindowController.shared.show(step: .accessibility)
             return
         }
         Permissions.requestMicrophone { [weak self] granted in
             guard let self else { return }
             guard granted else {
-                Permissions.showMicrophoneAlert()
+                OnboardingWindowController.shared.show(step: .microphone)
                 return
             }
             self.reallyStart(mode: mode)
@@ -291,13 +294,10 @@ final class DictationController {
         TextInserter.insert(text, target: target) { [weak self] result in
             guard let self else { return }
             switch result {
-            case .inserted(let method):
-                if method == .accessibility, let element = target?.element {
-                    self.autoLearner.beginObservation(element: element, insertedText: text)
-                } else if method == .paste, let element = target?.element {
-                    // 粘贴路径也尝试观察(拿得到 AXValue 才会生效)
-                    self.autoLearner.beginObservation(element: element, insertedText: text)
-                }
+            case .inserted:
+                // 自动学习(AutoLearner.beginObservation)尚未打磨好,暂时停用;
+                // 恢复时在此按插入方式重新接上观察
+                break
             case .copiedToClipboardOnly:
                 ToastPanel.show(message: "无法自动输入,结果已复制到剪贴板。")
             }
@@ -372,17 +372,6 @@ final class DictationController {
     }
 
     // MARK: - 错误提示
-
-    private func showKeyAlert() {
-        let alert = NSAlert()
-        alert.messageText = "尚未设置 OpenAI API Key。"
-        alert.addButton(withTitle: "打开设置")
-        alert.addButton(withTitle: "取消")
-        NSApp.activate(ignoringOtherApps: true)
-        if alert.runModal() == .alertFirstButtonReturn {
-            NotificationCenter.default.post(name: .openSettingsRequest, object: nil)
-        }
-    }
 
     private func showError(_ message: String) {
         let alert = NSAlert()

@@ -1,6 +1,12 @@
 import AppKit
 import SwiftUI
 
+/// 引导步骤。除了首启完整流程,单个步骤也可作为"权限/配置缺失"时的
+/// 引导页独立弹出(用户在使用中缺什么就看到什么,而不是干巴巴的警告框)
+enum OnboardingStep: Int, CaseIterable {
+    case welcome, apiKey, microphone, accessibility, tryIt
+}
+
 /// 首次启动引导(spec §16):欢迎 → API Key → 麦克风 → 辅助功能 → 试一下。
 /// 无账号、无注册,完成后不再出现。
 final class OnboardingWindowController {
@@ -14,16 +20,20 @@ final class OnboardingWindowController {
         show()
     }
 
-    func show() {
+    /// step 为 nil 走完整引导;指定 step 则以单页模式只展示该步骤
+    func show(step: OnboardingStep? = nil) {
+        let standalone = step != nil
+        let view = OnboardingView(
+            initialStep: step ?? .welcome,
+            standalone: standalone,
+            onAccessibilityGranted: { [weak self] in self?.onAccessibilityGranted?() },
+            onFinish: { [weak self] in
+                if !standalone { SettingsStore.shared.onboardingDone = true }
+                self?.window?.close()
+            }
+        )
+        let hosting = NSHostingController(rootView: view)
         if window == nil {
-            let view = OnboardingView(
-                onAccessibilityGranted: { [weak self] in self?.onAccessibilityGranted?() },
-                onFinish: { [weak self] in
-                    SettingsStore.shared.onboardingDone = true
-                    self?.window?.close()
-                }
-            )
-            let hosting = NSHostingController(rootView: view)
             let window = NSWindow(contentViewController: hosting)
             window.title = "欢迎使用 OpenVoice"
             window.styleMask = [.titled, .closable, .fullSizeContentView]
@@ -33,6 +43,9 @@ final class OnboardingWindowController {
             window.isReleasedWhenClosed = false
             window.center()
             self.window = window
+        } else {
+            window?.contentViewController = hosting
+            window?.setContentSize(NSSize(width: 480, height: 420))
         }
         NSApp.activate(ignoringOtherApps: true)
         window?.makeKeyAndOrderFront(nil)
@@ -40,14 +53,24 @@ final class OnboardingWindowController {
 }
 
 private struct OnboardingView: View {
+    let initialStep: OnboardingStep
+    /// 单页模式:只展示一个步骤,满足条件后「完成」直接关窗
+    let standalone: Bool
     let onAccessibilityGranted: () -> Void
     let onFinish: () -> Void
 
-    enum Step: Int, CaseIterable {
-        case welcome, apiKey, microphone, accessibility, tryIt
-    }
+    typealias Step = OnboardingStep
 
-    @State private var step: Step = .welcome
+    @State private var step: Step
+
+    init(initialStep: OnboardingStep, standalone: Bool,
+         onAccessibilityGranted: @escaping () -> Void, onFinish: @escaping () -> Void) {
+        self.initialStep = initialStep
+        self.standalone = standalone
+        self.onAccessibilityGranted = onAccessibilityGranted
+        self.onFinish = onFinish
+        _step = State(initialValue: initialStep)
+    }
     @State private var keyInput = ""
     @State private var keyStatus = ""
     @State private var validating = false
@@ -165,26 +188,34 @@ private struct OnboardingView: View {
 
     private var footer: some View {
         HStack {
-            if step != .welcome {
-                Button("上一步") { step = Step(rawValue: step.rawValue - 1) ?? .welcome }
-            }
-            Spacer()
-            // 步骤指示点
-            HStack(spacing: 5) {
-                ForEach(Step.allCases, id: \.rawValue) { s in
-                    Circle()
-                        .fill(s == step ? Color.accentColor : Color.primary.opacity(0.15))
-                        .frame(width: 6, height: 6)
-                }
-            }
-            Spacer()
-            if step == .tryIt {
+            if standalone {
+                // 单页模式:满足条件即可完成,不引导后续步骤
+                Spacer()
                 Button("完成") { onFinish() }
                     .buttonStyle(.borderedProminent)
-            } else {
-                Button("继续") { step = Step(rawValue: step.rawValue + 1) ?? .tryIt }
-                    .buttonStyle(.borderedProminent)
                     .disabled(!canContinue)
+            } else {
+                if step != .welcome {
+                    Button("上一步") { step = Step(rawValue: step.rawValue - 1) ?? .welcome }
+                }
+                Spacer()
+                // 步骤指示点
+                HStack(spacing: 5) {
+                    ForEach(Step.allCases, id: \.rawValue) { s in
+                        Circle()
+                            .fill(s == step ? Color.accentColor : Color.primary.opacity(0.15))
+                            .frame(width: 6, height: 6)
+                    }
+                }
+                Spacer()
+                if step == .tryIt {
+                    Button("完成") { onFinish() }
+                        .buttonStyle(.borderedProminent)
+                } else {
+                    Button("继续") { step = Step(rawValue: step.rawValue + 1) ?? .tryIt }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(!canContinue)
+                }
             }
         }
         .animation(.easeInOut(duration: 0.15), value: step)
