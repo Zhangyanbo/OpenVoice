@@ -5,51 +5,55 @@
 <h1 align="center">OpenVoice</h1>
 
 <p align="center">
-  无账号、无服务器——用你自己的 OpenAI API Key，音频直接从你的 Mac 发给 OpenAI，<br/>
-  其余一切（Key、术语表、历史）只保存在本机。
+  English · <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+<p align="center">
+  No account, no server — use your own OpenAI API Key. Audio goes straight<br/>
+  from your Mac to OpenAI; everything else (key, glossary, history) stays on your machine.
 </p>
 
 ---
 
-## 安装
+## Installation
 
-1. 下载 [OpenVoice.dmg](../../releases/latest)；
-2. 打开后把 **OpenVoice** 拖进右边的 **Applications** 文件夹；
-3. 首次启动：在「应用程序」里**右键 OpenVoice → 打开**（应用暂未经 Apple 公证，直接双击会被拦截）。
+1. Download [OpenVoice.dmg](../../releases/latest);
+2. Open it and drag **OpenVoice** into the **Applications** folder;
+3. First launch: in Applications, **right-click OpenVoice → Open** (the app is not yet Apple-notarized, so double-clicking directly will be blocked).
 
-## 配置
+## Setup
 
-首次启动会出现引导，跟着走完即可：
+A guided setup walks you through everything on first launch:
 
-1. **OpenAI API Key**——在 [platform.openai.com](https://platform.openai.com) 创建（API 为预付费，需要有余额）。Key 只保存在 Mac 的钥匙串里；
-2. **麦克风权限**——只在你说话时使用；
-3. **辅助功能权限**——全局快捷键和把文字写进光标位置需要它。
+1. **OpenAI API Key** — create one at [platform.openai.com](https://platform.openai.com) (the API is prepaid and requires a balance). The key is stored only in your Mac's Keychain;
+2. **Microphone access** — used only while you are speaking;
+3. **Accessibility access** — required for the global hotkey and for writing text at the cursor position.
 
-还有一步系统设置：**系统设置 → 键盘 → 「按下 🌐 键时」选择「无操作」**，否则 Fn 会触发系统自带的听写。
+One more system setting: **System Settings → Keyboard → "Press 🌐 key" → "Do nothing"**, otherwise Fn triggers the built-in system dictation.
 
-完成后菜单栏会出现 OpenVoice 的图标，随时可以开始。
+Once done, the OpenVoice icon appears in the menu bar and you're ready to go.
 
-## 使用
+## Usage
 
-| 操作 | 按键 |
+| Action | Keys |
 |---|---|
-| 开始 / 结束语音输入 | `Fn` |
-| 翻译输入（说中文，出英文） | `Fn + 左 Shift` 开始，`Fn` 结束 |
-| 取消本次录音 | `Esc` |
+| Start / end voice input | `Fn` |
+| Translation input (speak Chinese, get English) | Start with `Fn + Left Shift`, end with `Fn` |
+| Cancel current recording | `Esc` |
 
-说话时屏幕下方会出现一个小悬浮条，显示音量波形；再按一次 Fn，稍等一两秒，整理好的文字就出现在光标处。
+While speaking, a small floating bar with a live volume waveform appears near the bottom of the screen. Press Fn again, wait a second or two, and the polished text appears right at your cursor.
 
-几个好用的细节：
+A few handy details:
 
-- **对选中文字下指令**：选中一段文字，按 Fn 说「翻译成中文」「把这个写短一点」「整理成列表」，结果直接替换选中内容；
-- **翻译语言**：悬浮条右侧可以临时切换目标语言，默认语言在设置里改；
-- **术语表**：把人名、项目名、常被听错的词加进 设置 → 术语表，识别会优先用你的拼写；
-- **转录历史**：菜单栏图标 → 转录历史，每条都能一键复制；
-- **上下文**：默认会读取光标附近少量文字帮助识别，可在 设置 → 隐私 里逐项关闭；
-- 单次录音上限 10 分钟，最后一分钟悬浮条会显示倒计时，到时自动转录，内容不会丢。
+- **Command selected text**: select some text, press Fn and say "translate this into Chinese", "make it shorter", or "turn this into a list" — the selection is replaced in place;
+- **Translation language**: the target language can be switched temporarily from the floating bar; the default is configurable in Settings;
+- **Glossary**: add names, project names, and commonly misheard words under Settings → Glossary, and recognition will prefer your spelling;
+- **Transcription history**: menu bar icon → History; every entry can be copied with one click;
+- **Context**: by default a small amount of text near the cursor is read to improve recognition; each item can be turned off individually under Settings → Privacy;
+- A single recording is capped at 10 minutes; during the last minute the floating bar shows a countdown, then transcribes automatically so nothing is lost.
 
-费用参考：语音识别约 $0.006/分钟，文本整理几乎可以忽略——日常使用一个月通常不到一杯咖啡。
+Cost reference: speech recognition runs about $0.006/min and text polishing is negligible — typical daily use costs less than a cup of coffee per month.
 
 ## License
 
-个人及其他非商业用途免费使用（[PolyForm Noncommercial 1.0.0](LICENSE.md)）；商业使用请先联系作者。
+Free for personal and other non-commercial use ([PolyForm Noncommercial 1.0.0](LICENSE.md)); contact the author before any commercial use.
