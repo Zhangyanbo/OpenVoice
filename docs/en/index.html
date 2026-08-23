@@ -10,10 +10,12 @@
   // Language auto-detection: honor saved preference; otherwise route
   // non-Chinese browsers to English and Chinese browsers to the Chinese page.
   (function () {
-    var pref = localStorage.getItem("lang");
+    var pref;
+    try { pref = localStorage.getItem("lang"); } catch (e) {}
     var nav = (navigator.language || "en").toLowerCase();
     var wantEn = pref ? pref === "en" : !nav.startsWith("zh");
-    if (!wantEn) location.replace("../");
+    // Use full filenames: bare directory paths fail in some environments (file:// etc.)
+    if (!wantEn) location.replace("../index.html");
   })();
 </script>
 <style>
@@ -85,6 +87,8 @@
   .brand img { width: 22px; height: 22px; border-radius: 6px; }
   .nav-links { display: flex; align-items: center; gap: 22px; margin-left: auto; font-size: 14px; color: var(--fg-soft); }
   .nav-links a:hover { color: var(--fg); transition: color 0.15s; }
+  /* Keep the language switch away from the links on its left */
+  .nav-links a.lang { margin-left: 18px; }
 
   .btn {
     display: inline-flex;
@@ -234,8 +238,8 @@
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
       <a href="https://github.com/Zhangyanbo/OpenVoice">GitHub</a>
-      <!-- 语言切换:点击即记住偏好 -->
-      <a href="../" onclick="localStorage.setItem('lang','zh')">中文</a>
+      <!-- Language switch: remembers the choice on click -->
+      <a class="lang" href="../index.html" onclick="try{localStorage.setItem('lang','zh')}catch(e){}">中文</a>
       <a class="btn btn-primary" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">Download</a>
     </div>
   </nav>

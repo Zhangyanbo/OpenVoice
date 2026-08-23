@@ -10,10 +10,12 @@
   // 语言自动检测:优先使用用户上次的选择;否则中文浏览器留在本页,
   // 其他语言浏览器跳转英文版 /en/。
   (function () {
-    var pref = localStorage.getItem("lang");
+    var pref;
+    try { pref = localStorage.getItem("lang"); } catch (e) {}
     var nav = (navigator.language || "en").toLowerCase();
     var wantEn = pref ? pref === "en" : !nav.startsWith("zh");
-    if (wantEn) location.replace("en/");
+    // 用完整文件名跳转:目录路径在部分环境(file:// 等)下无法解析
+    if (wantEn) location.replace("en/index.html");
   })();
 </script>
 <style>
@@ -85,6 +87,8 @@
   .brand img { width: 22px; height: 22px; border-radius: 6px; }
   .nav-links { display: flex; align-items: center; gap: 22px; margin-left: auto; font-size: 14px; color: var(--fg-soft); }
   .nav-links a:hover { color: var(--fg); transition: color 0.15s; }
+  /* 让语言切换与左侧链接保持距离 */
+  .nav-links a.lang { margin-left: 18px; }
 
   .btn {
     display: inline-flex;
@@ -235,7 +239,7 @@
       <a href="#privacy">隐私声明</a>
       <a href="https://github.com/Zhangyanbo/OpenVoice">GitHub</a>
       <!-- 语言切换:点击即记住偏好 -->
-      <a href="en/" onclick="localStorage.setItem('lang','en')">English</a>
+      <a class="lang" href="en/index.html" onclick="try{localStorage.setItem('lang','en')}catch(e){}">English</a>
       <a class="btn btn-primary" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">下载</a>
     </div>
   </nav>
