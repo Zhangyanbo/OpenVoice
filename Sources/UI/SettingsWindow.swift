@@ -248,7 +248,7 @@ private struct GeneralPane: View {
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "显示语音悬浮条", subtitle: "悬浮条可拖动,位置会被记住") {
+                SettingsRow(title: "显示语音悬浮条", subtitle: "悬浮条可拖动，位置会被记住") {
                     HStack(spacing: 10) {
                         Button("重置位置") { settings.clearPanelOrigin() }
                             .controlSize(.small)
@@ -264,7 +264,7 @@ private struct GeneralPane: View {
             }
 
             SettingsCard(title: "快捷键",
-                         footer: "若使用 Fn,请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」,避免与系统听写冲突。") {
+                         footer: "若使用 Fn，请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」，避免与系统听写冲突。") {
                 SettingsRow(title: "语音输入") {
                     Picker("", selection: $settings.primaryKey) {
                         ForEach(SettingsStore.TriggerKey.allCases.filter { $0 != .none }) { key in
@@ -305,7 +305,7 @@ private struct PrivacyPane: View {
     var body: some View {
         PaneScroll(title: "隐私") {
             SettingsCard(title: "上下文",
-                         footer: "开启后,对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取;关闭后完全不发送。") {
+                         footer: "开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。") {
                 SettingsRow(title: "使用当前 App 上下文", subtitle: "App 名称与窗口标题") {
                     Toggle("", isOn: $settings.useAppContext)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
@@ -322,9 +322,9 @@ private struct PrivacyPane: View {
                 }
             }
 
-            SettingsCard(footer: "本应用不截图、不 OCR、不申请屏幕录制权限、不记录键盘输入。除录音音频与上方选择的上下文外,API Key、术语表、设置与历史记录全部只保存在这台 Mac 上。") {
+            SettingsCard(footer: "本应用不截图、不 OCR、不申请屏幕录制权限、不记录键盘输入。除录音音频与上方选择的上下文外，API Key、术语表、设置与历史记录全部只保存在这台 Mac 上。") {
                 SettingsRow(title: "数据边界",
-                            subtitle: "每次请求只发送:当次录音 + 上方勾选的上下文 + 术语提示") {
+                            subtitle: "每次请求只发送：当次录音 + 上方勾选的上下文 + 术语提示") {
                     Image(systemName: "lock.fill")
                         .foregroundStyle(.secondary)
                 }
@@ -391,7 +391,7 @@ private struct LanguageCard: View {
             }
             CardDivider()
             HStack(spacing: 8) {
-                TextField("添加翻译语言,如:日语", text: $newLanguage)
+                TextField("添加翻译语言，如：日语", text: $newLanguage)
                     .textFieldStyle(.plain)
                     .font(.system(size: 13))
                     .onSubmit(addLanguage)
@@ -425,7 +425,7 @@ private struct OpenAICard: View {
     private let llmOptions = ["", "gpt-5.6-luna", "gpt-5-nano", "gpt-4.1-nano", "gpt-5.4-mini"]
 
     var body: some View {
-        SettingsCard(title: "OpenAI", footer: "默认模型即当前推荐,普通使用无需修改。API Key 只保存在 macOS Keychain。") {
+        SettingsCard(title: "OpenAI", footer: "默认模型即当前推荐，普通使用无需修改。API Key 只保存在 macOS 钥匙串。") {
             if editingKey {
                 VStack(alignment: .leading, spacing: 8) {
                     SecureField("API Key(sk-…)", text: $keyInput)
@@ -462,7 +462,7 @@ private struct OpenAICard: View {
             SettingsRow(title: "语音识别模型") {
                 Picker("", selection: $settings.transcribeModel) {
                     ForEach(transcribeOptions, id: \.self) { model in
-                        Text(model.isEmpty ? "默认(\(SettingsStore.defaultTranscribeModel))" : model).tag(model)
+                        Text(model.isEmpty ? "默认（\(SettingsStore.defaultTranscribeModel)）" : model).tag(model)
                     }
                 }
                 .labelsHidden().fixedSize()
@@ -471,7 +471,7 @@ private struct OpenAICard: View {
             SettingsRow(title: "语言模型") {
                 Picker("", selection: $settings.llmModel) {
                     ForEach(llmOptions, id: \.self) { model in
-                        Text(model.isEmpty ? "默认(\(SettingsStore.defaultLLMModel))" : model).tag(model)
+                        Text(model.isEmpty ? "默认（\(SettingsStore.defaultLLMModel)）" : model).tag(model)
                     }
                 }
                 .labelsHidden().fixedSize()
@@ -586,7 +586,7 @@ private struct GlossaryPane: View {
     private func importFile() {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.plainText]
-        panel.message = "选择一个文本文件,每行一个术语"
+        panel.message = "选择一个文本文件，每行一个术语"
         guard panel.runModal() == .OK, let url = panel.url,
               let content = try? String(contentsOf: url, encoding: .utf8) else { return }
         let count = glossary.importText(content)
@@ -691,9 +691,9 @@ private struct HistoryPane: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 8) {
                             debugRow("发送的上下文", log.contextSummary)
-                            debugRow("术语提示", log.termHint.isEmpty ? "(无)" : log.termHint)
-                            debugRow("文字插入", log.insertTrace.isEmpty ? "(无)" : log.insertTrace)
-                            debugRow("错误", log.lastError ?? "(无)")
+                            debugRow("术语提示", log.termHint.isEmpty ? "（无）" : log.termHint)
+                            debugRow("文字插入", log.insertTrace.isEmpty ? "（无）" : log.insertTrace)
+                            debugRow("错误", log.lastError ?? "（无）")
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(10)
@@ -709,7 +709,7 @@ private struct HistoryPane: View {
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 20)
-        .confirmationDialog("是否删除?",
+        .confirmationDialog("是否删除？",
                             isPresented: Binding(get: { pendingDelete != nil },
                                                  set: { if !$0 { pendingDelete = nil } }),
                             presenting: pendingDelete) { entry in

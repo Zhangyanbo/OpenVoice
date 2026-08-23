@@ -19,12 +19,12 @@ struct DictationContext {
     /// 人类可读摘要,用于"查看本次发送的上下文"(spec §18)
     var summary: String {
         var lines: [String] = []
-        if let appName { lines.append("App: \(appName)") }
-        if let windowTitle { lines.append("窗口标题: \(windowTitle)") }
-        if let selectedText { lines.append("选中文字: \(selectedText)") }
-        if let beforeCursor { lines.append("光标前: …\(beforeCursor)") }
-        if let afterCursor { lines.append("光标后: \(afterCursor)…") }
-        return lines.isEmpty ? "(无)" : lines.joined(separator: "\n")
+        if let appName { lines.append("App：\(appName)") }
+        if let windowTitle { lines.append("窗口标题：\(windowTitle)") }
+        if let selectedText { lines.append("选中文字：\(selectedText)") }
+        if let beforeCursor { lines.append("光标前：…\(beforeCursor)") }
+        if let afterCursor { lines.append("光标后：\(afterCursor)…") }
+        return lines.isEmpty ? "（无）" : lines.joined(separator: "\n")
     }
 }
 

@@ -4,7 +4,7 @@ import AppKit
 /// 记录上次实际发送给 OpenAI 的上下文与术语提示,供"查看本次发送的上下文"(spec §18)。
 final class LastRequestLog: ObservableObject {
     static let shared = LastRequestLog()
-    @Published var contextSummary: String = "(还没有发送过请求)"
+    @Published var contextSummary: String = "（还没有发送过请求）"
     @Published var termHint: String = ""
     @Published var timestamp: Date?
     /// 最近一次失败的完整错误信息(悬浮条上只显示截断版)
@@ -147,7 +147,7 @@ final class DictationController {
             try recorder.start()
         } catch {
             session = nil
-            showError("无法开始录音:\(error.localizedDescription)")
+            showError("无法开始录音：\(error.localizedDescription)")
             return
         }
 
@@ -229,7 +229,7 @@ final class DictationController {
         let llmModel = settings.effectiveLLMModel
 
         LastRequestLog.shared.contextSummary = context.summary
-        LastRequestLog.shared.termHint = termHint.isEmpty ? "(无)" : termHint
+        LastRequestLog.shared.termHint = termHint.isEmpty ? "（无）" : termHint
         LastRequestLog.shared.timestamp = Date()
 
         // controller 与应用同生命周期,请求期间强持有以保证结果送达
@@ -265,7 +265,7 @@ final class DictationController {
                         }
                         return
                     }
-                    NSLog("整理模型失败,使用原始转录: \(error.localizedDescription)")
+                    NSLog("整理模型失败，使用原始转录：\(error.localizedDescription)")
                 }
 
                 let text = final
@@ -298,7 +298,7 @@ final class DictationController {
                 // 恢复时在此按插入方式重新接上观察
                 break
             case .copiedToClipboardOnly:
-                ToastPanel.show(message: "无法自动输入,结果已复制到剪贴板。")
+                ToastPanel.show(message: "无法自动输入，结果已复制到剪贴板。")
             }
         }
     }
@@ -313,10 +313,10 @@ final class DictationController {
         state = .idle
         failedAttempt = FailedAttempt(wav: wav, mode: mode, context: context, target: target)
         let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-        NSLog("转录失败: \(reason)")
+        NSLog("转录失败：\(reason)")
         LastRequestLog.shared.lastError = reason
         LastRequestLog.shared.lastErrorAt = Date()
-        panel.showError("转录失败:\(reason)")
+        panel.showError("转录失败：\(reason)")
     }
 
     // MARK: - Prompt 组装(spec §3, §8, §13)
@@ -326,31 +326,31 @@ final class DictationController {
         switch mode {
         case .dictation:
             lines.append("""
-            你是一个语音输入法的后处理器。用户通过语音说出了一段文字,你要把语音转录结果整理成可以直接插入光标位置的最终文本。
-            规则:
-            - 删除“呃”“嗯”等填充词、无意义重复;用户说话中途自我纠正时,只保留纠正后的内容。
+            你是一个语音输入法的后处理器。用户通过语音说出了一段文字，你要把语音转录结果整理成可以直接插入光标位置的最终文本。
+            规则：
+            - 删除“呃”“嗯”等填充词、无意义重复；用户说话中途自我纠正时，只保留纠正后的内容。
             - 补全标点、修正大小写、规范数字与列表格式。
-            - 保持用户的原意、语气和用词。只修正语音表达带来的噪声,绝不替用户重新写作或扩写。
+            - 保持用户的原意、语气和用词。只修正语音表达带来的噪声，绝不替用户重新写作或扩写。
             - 输出语言与用户说话的语言一致。
-            - 以 JSON 输出,最终文本放在 text 字段中;text 里只有正文本身,不含任何解释或前后缀。
+            - 以 JSON 输出，最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。
             """)
             if context.selectedText != nil {
                 lines.append("""
-                特殊情况:用户当前选中了一段文字(见下文)。如果转录内容是对这段文字的操作指令(例如“把这个写短一点”“翻译成中文”“整理成列表”),则输出对选中文字执行该指令后的结果,用于直接替换选中文字;否则按普通语音输入处理,输出整理后的转录文本。
+                特殊情况：用户当前选中了一段文字（见下文）。如果转录内容是对这段文字的操作指令（例如“把这个写短一点”“翻译成中文”“整理成列表”），则输出对选中文字执行该指令后的结果，用于直接替换选中文字；否则按普通语音输入处理，输出整理后的转录文本。
                 """)
             }
         case .translation(let target):
             lines.append("""
-            你是一个语音翻译输入法的后处理器。用户说了一段话,你要输出它的\(target)版本,用于直接插入光标位置。
-            规则:
-            - 不要逐字机器翻译,直接生成自然、地道的\(target)表达。
+            你是一个语音翻译输入法的后处理器。用户说了一段话，你要输出它的\(target)版本，用于直接插入光标位置。
+            规则：
+            - 不要逐字机器翻译，直接生成自然、地道的\(target)表达。
             - 保持原意、人名、专有名词、技术术语、数字、格式和语气。
-            - 删除“呃”“嗯”等填充词和无意义重复;用户自我纠正时只保留纠正后的内容。
-            - 以 JSON 输出,翻译后的最终文本放在 text 字段中;text 里只有正文本身,不含任何解释或前后缀。
+            - 删除“呃”“嗯”等填充词和无意义重复；用户自我纠正时只保留纠正后的内容。
+            - 以 JSON 输出，翻译后的最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。
             """)
         }
         if !terms.isEmpty {
-            lines.append("用户的个人术语表(专有名词以此为准的拼写/大小写):\(terms)")
+            lines.append("用户的个人术语表（专有名词以此为准的拼写/大小写）：\(terms)")
         }
         return lines.joined(separator: "\n\n")
     }
@@ -359,14 +359,14 @@ final class DictationController {
         var lines: [String] = []
         if !context.isEmpty {
             var contextLines: [String] = []
-            if let app = context.appName { contextLines.append("当前 App:\(app)") }
-            if let title = context.windowTitle { contextLines.append("窗口标题:\(title)") }
-            if let selected = context.selectedText { contextLines.append("当前选中的文字:「\(selected)」") }
-            if let before = context.beforeCursor { contextLines.append("光标前的文字:…\(before)") }
-            if let after = context.afterCursor { contextLines.append("光标后的文字:\(after)…") }
-            lines.append("上下文(仅供判断语言、风格、术语拼写,不要在输出中重复它):\n" + contextLines.joined(separator: "\n"))
+            if let app = context.appName { contextLines.append("当前 App：\(app)") }
+            if let title = context.windowTitle { contextLines.append("窗口标题：\(title)") }
+            if let selected = context.selectedText { contextLines.append("当前选中的文字：「\(selected)」") }
+            if let before = context.beforeCursor { contextLines.append("光标前的文字：…\(before)") }
+            if let after = context.afterCursor { contextLines.append("光标后的文字：\(after)…") }
+            lines.append("上下文（仅供判断语言、风格、术语拼写，不要在输出中重复它）：\n" + contextLines.joined(separator: "\n"))
         }
-        lines.append("语音转录结果:\n\(transcript)")
+        lines.append("语音转录结果：\n\(transcript)")
         return lines.joined(separator: "\n\n")
     }
 

@@ -18,7 +18,7 @@ enum TextInserter {
     /// 必须在主线程调用。
     static func insert(_ text: String, target: InsertionTarget?, completion: @escaping (Result) -> Void) {
         trace = []
-        log("目标:pid=\(target?.pid.description ?? "无") 控件=\(target?.element != nil ? "有" : "无")")
+        log("目标：pid=\(target?.pid.description ?? "无") 控件=\(target?.element != nil ? "有" : "无")")
         // 先把焦点还给原来的 App(网络请求期间用户可能切走了)
         reactivateIfNeeded(target: target) {
             if let target, let element = target.element, axInsert(text, target: target, element: element) {
@@ -44,7 +44,7 @@ enum TextInserter {
         var settable = DarwinBoolean(false)
         let settableErr = AXUIElementIsAttributeSettable(element, kAXSelectedTextAttribute as CFString, &settable)
         guard settableErr == .success, settable.boolValue else {
-            log("AX 路径不可用(settable=\(settable.boolValue), err=\(settableErr.rawValue)),改走粘贴")
+            log("AX 路径不可用（settable=\(settable.boolValue), err=\(settableErr.rawValue)），改走粘贴")
             return false
         }
 
@@ -58,7 +58,7 @@ enum TextInserter {
 
         let setErr = AXUIElementSetAttributeValue(element, kAXSelectedTextAttribute as CFString, text as CFTypeRef)
         guard setErr == .success else {
-            log("AX 写入失败(err=\(setErr.rawValue)),改走粘贴")
+            log("AX 写入失败（err=\(setErr.rawValue)），改走粘贴")
             return false
         }
 
@@ -67,7 +67,7 @@ enum TextInserter {
         if let value = AXContextReader.stringAttr(element, kAXValueAttribute) {
             let sample = String(text.prefix(80))
             guard value.contains(sample) else {
-                log("AX 返回成功但控件内容里找不到插入文本(静默失败),改走粘贴")
+                log("AX 返回成功但控件内容里找不到插入文本（静默失败），改走粘贴")
                 return false
             }
         }
@@ -86,7 +86,7 @@ enum TextInserter {
 
         guard Permissions.accessibilityGranted, sendCmdV() else {
             // 无法模拟粘贴:文字留在剪贴板,不恢复旧内容(spec §19)
-            log("无法模拟 Cmd+V(权限或事件创建失败),文字留在剪贴板")
+            log("无法模拟 Cmd+V（权限或事件创建失败），文字留在剪贴板")
             completion(.copiedToClipboardOnly)
             return
         }

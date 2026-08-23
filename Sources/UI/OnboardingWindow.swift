@@ -107,10 +107,10 @@ private struct OnboardingView: View {
                 AppMark(size: 72)
                     .padding(.top, 12)
                 Text("OpenVoice").font(.system(size: 24, weight: .bold))
-                Text("把光标放到任意地方,按 Fn 说话,再按 Fn,\n文字直接出现。")
+                Text("把光标放到任意地方，按 Fn 说话，再按 Fn，\n文字直接出现。")
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)
-                Text("无账号、无服务器。你的 OpenAI API Key 保存在本机 Keychain,\n音频直接从这台 Mac 发送给 OpenAI。")
+                Text("无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。")
                     .font(.system(size: 11.5))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
@@ -120,7 +120,7 @@ private struct OnboardingView: View {
         case .apiKey:
             VStack(alignment: .leading, spacing: 12) {
                 Text("设置 OpenAI API Key").font(.title2.bold())
-                Text("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中,不写入配置文件,不进入日志。")
+                Text("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                 if keySaved && !replacingKey {
@@ -143,7 +143,7 @@ private struct OnboardingView: View {
                         }
                     }
                 }
-                Text("如果系统弹出「访问钥匙串」的确认框,请选择「始终允许」,之后不会再询问。")
+                Text("如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -153,7 +153,7 @@ private struct OnboardingView: View {
 
         case .microphone:
             permissionStep(title: "授予麦克风权限",
-                           description: "只在语音输入期间使用,录音结束立即停止访问。",
+                           description: "只在语音输入期间使用，录音结束立即停止访问。",
                            granted: micGranted,
                            buttonTitle: "允许使用麦克风") {
                 Permissions.requestMicrophone { granted in
@@ -174,13 +174,13 @@ private struct OnboardingView: View {
         case .tryIt:
             VStack(alignment: .leading, spacing: 12) {
                 Text("试一下").font(.title2.bold())
-                Text("点击下面的输入框,按 \(SettingsStore.shared.primaryKey.displayName),说一句话,再按一次。")
+                Text("点击下面的输入框，按 \(SettingsStore.shared.primaryKey.displayName)，说一句话，再按一次。")
                     .foregroundStyle(.secondary)
                 TextEditor(text: $tryText)
                     .font(.body)
                     .frame(height: 120)
                     .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(.separator))
-                Text("提示:若使用 Fn,请先在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」。")
+                Text("提示：若使用 Fn，请先在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

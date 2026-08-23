@@ -13,7 +13,7 @@ struct OpenAIClient {
             switch self {
             case .noAPIKey: return "尚未设置 OpenAI API Key。"
             case .invalidKey: return "OpenAI 无法验证这个 API Key。"
-            case .http(let code, let message): return "OpenAI 请求失败(\(code)):\(message)"
+            case .http(let code, let message): return "OpenAI 请求失败（\(code)）：\(message)"
             case .badResponse: return "OpenAI 返回了无法解析的结果。"
             }
         }
@@ -146,7 +146,7 @@ struct OpenAIClient {
                 if code == "insufficient_quota" || message.lowercased().contains("quota") {
                     throw ClientError.http(429, "OpenAI 账户余额/额度不足。请到 platform.openai.com → Billing 充值。")
                 }
-                throw ClientError.http(429, "请求过于频繁被 OpenAI 限流,请稍等几秒后重试。")
+                throw ClientError.http(429, "请求过于频繁被 OpenAI 限流，请稍等几秒后重试。")
             }
             throw ClientError.http(http.statusCode, message)
         }

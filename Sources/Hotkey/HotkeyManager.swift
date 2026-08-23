@@ -60,7 +60,7 @@ final class HotkeyManager {
                                           eventsOfInterest: mask,
                                           callback: callback,
                                           userInfo: Unmanaged.passUnretained(self).toOpaque()) else {
-            NSLog("HotkeyManager: 无法创建事件 tap(缺少辅助功能权限?)")
+            NSLog("HotkeyManager: 无法创建事件 tap（缺少辅助功能权限？）")
             return
         }
         eventTap = tap
