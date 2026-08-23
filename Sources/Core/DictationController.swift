@@ -141,12 +141,9 @@ final class DictationController {
         }
 
         state = .recording(mode)
-        // 开始只响一声:提示音优先,关掉提示音后按键音仍可提供反馈
-        if settings.playSound {
-            SoundPlayer.playStart()
-        } else if settings.keyPressSound {
-            SoundPlayer.playKeyClick()
-        }
+        // 两个开关各管各的:提示音只管开始那一声,按键音效只管结束那一声。
+        // 不做 fallback —— 关掉提示音就必须完全安静
+        if settings.playSound { SoundPlayer.playStart() }
         if settings.showPanel {
             switch mode {
             case .dictation:

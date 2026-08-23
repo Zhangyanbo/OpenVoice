@@ -10,11 +10,12 @@ final class SettingsWindowController {
     private let nav = SettingsNav()
 
     enum Tab: String, CaseIterable {
-        case general, glossary, history
+        case general, privacy, glossary, history
 
         var title: String {
             switch self {
             case .general: return "通用"
+            case .privacy: return "隐私"
             case .glossary: return "术语表"
             case .history: return "历史"
             }
@@ -23,6 +24,7 @@ final class SettingsWindowController {
         var icon: String {
             switch self {
             case .general: return "gearshape.fill"
+            case .privacy: return "hand.raised.fill"
             case .glossary: return "character.book.closed.fill"
             case .history: return "clock.arrow.circlepath"
             }
@@ -31,6 +33,7 @@ final class SettingsWindowController {
         var iconColor: Color {
             switch self {
             case .general: return Color(red: 0.42, green: 0.48, blue: 0.56)
+            case .privacy: return Color(red: 0.25, green: 0.55, blue: 0.9)
             case .glossary: return Color(red: 0.95, green: 0.61, blue: 0.19)
             case .history: return Color(red: 0.56, green: 0.45, blue: 0.86)
             }
@@ -73,6 +76,7 @@ struct SettingsRootView: View {
             Group {
                 switch nav.tab {
                 case .general: GeneralPane()
+                case .privacy: PrivacyPane()
                 case .glossary: GlossaryPane()
                 case .history: HistoryPane()
                 }
@@ -250,7 +254,7 @@ private struct GeneralPane: View {
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: "按键音效", subtitle: "每次按下语音快捷键时") {
+                SettingsRow(title: "按键音效", subtitle: "结束录音的按键反馈") {
                     Toggle("", isOn: $settings.keyPressSound)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
@@ -299,9 +303,21 @@ private struct GeneralPane: View {
 
             LanguageCard()
 
+            OpenAICard()
+        }
+    }
+}
+
+// MARK: - 隐私
+
+private struct PrivacyPane: View {
+    @ObservedObject var settings = SettingsStore.shared
+
+    var body: some View {
+        PaneScroll(title: "隐私") {
             SettingsCard(title: "上下文",
-                         footer: "上下文只在你主动开始语音输入时通过辅助功能 API 读取。本应用不截图、不 OCR、不申请屏幕录制权限。") {
-                SettingsRow(title: "使用当前 App 上下文") {
+                         footer: "开启后,对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取;关闭后完全不发送。") {
+                SettingsRow(title: "使用当前 App 上下文", subtitle: "App 名称与窗口标题") {
                     Toggle("", isOn: $settings.useAppContext)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
@@ -317,7 +333,13 @@ private struct GeneralPane: View {
                 }
             }
 
-            OpenAICard()
+            SettingsCard(footer: "本应用不截图、不 OCR、不申请屏幕录制权限、不记录键盘输入。除录音音频与上方选择的上下文外,API Key、术语表、设置与历史记录全部只保存在这台 Mac 上。") {
+                SettingsRow(title: "数据边界",
+                            subtitle: "每次请求只发送:当次录音 + 上方勾选的上下文 + 术语提示") {
+                    Image(systemName: "lock.fill")
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 }
@@ -732,9 +754,11 @@ private struct HistoryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             VStack(alignment: .leading, spacing: 3) {
+                // 只显示前两行,超出部分以尾部省略号标记;复制取的是完整内容
                 Text(entry.text)
                     .font(.system(size: 12.5))
-                    .lineLimit(4)
+                    .lineLimit(2)
+                    .truncationMode(.tail)
                     .textSelection(.enabled)
                 HStack(spacing: 6) {
                     Text(entry.date.formatted(date: .abbreviated, time: .shortened))
