@@ -141,8 +141,6 @@ final class DictationController {
         }
 
         state = .recording(mode)
-        // 两个开关各管各的:提示音只管开始那一声,按键音效只管结束那一声。
-        // 不做 fallback —— 关掉提示音就必须完全安静
         if settings.playSound { SoundPlayer.playStart() }
         if settings.showPanel {
             switch mode {
@@ -168,7 +166,7 @@ final class DictationController {
             return
         }
 
-        if settings.keyPressSound { SoundPlayer.playKeyClick() }
+        if settings.playSound { SoundPlayer.playKeyClick() }
         state = .transcribing
         panel.showTranscribing()
         process(wav: wav, mode: mode, context: session.context, target: session.target)

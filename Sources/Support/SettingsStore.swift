@@ -55,9 +55,8 @@ final class SettingsStore: ObservableObject {
     private let defaults = UserDefaults.standard
 
     // MARK: - 通用
+    /// 唯一的音效总开关:关掉后任何情况下都不出声
     @Published var playSound: Bool { didSet { defaults.set(playSound, forKey: "playSound") } }
-    /// 每次按下语音快捷键(开始/结束)时的短促按键音
-    @Published var keyPressSound: Bool { didSet { defaults.set(keyPressSound, forKey: "keyPressSound") } }
     @Published var showPanel: Bool { didSet { defaults.set(showPanel, forKey: "showPanel") } }
     @Published var launchAtLogin: Bool {
         didSet {
@@ -109,7 +108,6 @@ final class SettingsStore: ObservableObject {
 
     private init() {
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true
-        keyPressSound = defaults.object(forKey: "keyPressSound") as? Bool ?? true
         showPanel = defaults.object(forKey: "showPanel") as? Bool ?? true
         launchAtLogin = defaults.object(forKey: "launchAtLogin") as? Bool ?? false
         primaryKey = TriggerKey(rawValue: defaults.string(forKey: "primaryKey") ?? "") ?? .fn
