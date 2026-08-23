@@ -23,13 +23,13 @@
 
 ## 构建
 
-需要 Xcode 15+ 与 [xcodegen](https://github.com/yonaskolb/XcodeGen)(`brew install xcodegen`):
+需要 Xcode 15+、[xcodegen](https://github.com/yonaskolb/XcodeGen)(`brew install xcodegen`)
+与 [dmgbuild](https://github.com/dmgbuild/dmgbuild)(`uv tool install dmgbuild`):
 
 ```bash
-xcodegen
-xcodebuild -project OpenVoice.xcodeproj -scheme OpenVoice \
-  -configuration Debug -derivedDataPath build build
-open build/Build/Products/Debug/OpenVoice.app
+./scripts/build.sh
+# → build/Build/Products/Release/OpenVoice.app
+# → dist/OpenVoice.dmg(打开后把 OpenVoice 拖进 Applications 即完成安装)
 ```
 
 ## 首次使用
