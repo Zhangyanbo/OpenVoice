@@ -13,6 +13,8 @@ final class PanelModel: ObservableObject {
     @Published var phase: Phase = .listening
     /// 最近若干个音量采样(0...1),驱动流动的波形
     @Published var levels: [Float] = Array(repeating: 0, count: 5)
+    /// 非空表示接近最长录音时长:显示剩余秒数倒计时
+    @Published var countdownSeconds: Int?
     /// 非空表示翻译模式:(当前目标语言, 可选语言列表)
     @Published var translation: (current: String, options: [String])?
 
@@ -65,8 +67,13 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     func showListening(translation: (String, [String])?) {
         model.phase = .listening
         model.resetLevels()
+        model.countdownSeconds = nil
         model.translation = translation.map { (current: $0.0, options: $0.1) }
         show()
+    }
+
+    func updateCountdown(_ seconds: Int) {
+        model.countdownSeconds = seconds
     }
 
     func showTranscribing() {
@@ -258,9 +265,16 @@ struct RecordingBarView: View {
         HStack(spacing: 10) {
             PulsingDot()
             WaveformView(levels: model.levels)
-            Text("正在聆听")
-                .font(.system(size: 12.5, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
+            if let seconds = model.countdownSeconds {
+                // 接近最长录音时长:文案变为倒计时,琥珀色提醒
+                Text(String(format: "剩余 %d:%02d", seconds / 60, seconds % 60))
+                    .font(.system(size: 12.5, weight: .medium).monospacedDigit())
+                    .foregroundStyle(Color(red: 1.0, green: 0.76, blue: 0.35))
+            } else {
+                Text("正在聆听")
+                    .font(.system(size: 12.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.85))
+            }
             if model.translation != nil {
                 languageMenu
             }

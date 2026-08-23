@@ -52,6 +52,14 @@ final class DictationController {
 
     private var session: (mode: Mode, context: DictationContext, target: InsertionTarget?)?
 
+    // MARK: - 最长录音时长
+    /// 测试值 70 秒;验证倒计时交互后改回 600(10 分钟)
+    private static let maxRecordingDuration: TimeInterval = 70
+    /// 剩余时间进入此窗口后,悬浮条的「正在聆听」变为倒计时
+    private static let countdownWarningWindow: TimeInterval = 60
+    private var recordingTimer: Timer?
+    private var recordingStartedAt: Date?
+
     init() {
         recorder.onLevel = { [weak self] level in
             self?.panel.updateLevel(level)
@@ -93,6 +101,7 @@ final class DictationController {
     func cancel() {
         switch state {
         case .recording:
+            stopRecordingTimer()
             recorder.cancel()
             state = .idle
             session = nil
@@ -141,6 +150,7 @@ final class DictationController {
         }
 
         state = .recording(mode)
+        startRecordingTimer()
         if settings.playSound { SoundPlayer.playStart() }
         if settings.showPanel {
             switch mode {
@@ -152,8 +162,37 @@ final class DictationController {
         }
     }
 
+    private func startRecordingTimer() {
+        recordingStartedAt = Date()
+        recordingTimer?.invalidate()
+        recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.recordingTick()
+        }
+    }
+
+    private func stopRecordingTimer() {
+        recordingTimer?.invalidate()
+        recordingTimer = nil
+        recordingStartedAt = nil
+    }
+
+    private func recordingTick() {
+        guard case .recording = state, let startedAt = recordingStartedAt else {
+            stopRecordingTimer()
+            return
+        }
+        let remaining = Self.maxRecordingDuration - Date().timeIntervalSince(startedAt)
+        if remaining <= 0 {
+            // 到达最长时长,视同再按一次快捷键:正常结束并转录
+            finish()
+        } else if remaining <= Self.countdownWarningWindow {
+            panel.updateCountdown(Int(remaining.rounded(.up)))
+        }
+    }
+
     private func finish() {
         guard case .recording = state, let session else { return }
+        stopRecordingTimer()
         // 语言可能在悬浮条上被临时切换,以 controller 记录的最新 mode 为准
         let mode: Mode
         if case .recording(let m) = state { mode = m } else { mode = session.mode }
