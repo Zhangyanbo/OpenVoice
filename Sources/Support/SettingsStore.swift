@@ -24,7 +24,7 @@ final class SettingsStore: ObservableObject {
         var displayName: String {
             switch self {
             case .none: return "无"
-            case .fn: return "Fn (🌐)"
+            case .fn: return "Fn"
             case .rightCommand: return "右 Command"
             case .rightOption: return "右 Option"
             case .f13: return "F13"
