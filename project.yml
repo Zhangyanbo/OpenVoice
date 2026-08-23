@@ -43,7 +43,7 @@ targets:
         CFBundleVersion: "1"
         LSUIElement: true
         NSMicrophoneUsageDescription: "语音输入需要使用麦克风录制你的声音。录音结束后立即停止访问。"
-        NSHumanReadableCopyright: "Open source, MIT License"
+        NSHumanReadableCopyright: "© 2026 Yanbo Zhang · PolyForm Noncommercial 1.0.0"
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.openvoice.app

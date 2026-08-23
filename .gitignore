@@ -17,3 +17,7 @@ xcuserdata/
 *~lock~
 Resources/
 dist/
+
+# 内部文档,不进公开仓库
+spec.md
+AGENTS.md

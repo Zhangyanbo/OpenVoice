@@ -1,54 +1,60 @@
-# OpenVoice
+<p align="center">
+  <img src="icon/icon_design.png" width="140" alt="OpenVoice" />
+</p>
 
-开源的 macOS 菜单栏 AI 语音输入法:
+<h1 align="center">OpenVoice</h1>
 
-> **光标放到任意地方 → 按 Fn → 说话 → 再按 Fn → 文字直接出现。**
+<p align="center">
+  macOS 上的 AI 语音输入法。<br/>
+  把光标放到任意地方,按下 <b>Fn</b> 说话,再按一次,文字直接出现。
+</p>
 
-- 无服务器、无账号。用你自己的 OpenAI API Key(保存在 macOS Keychain)。
-- 语音识别默认 `gpt-4o-transcribe`,再由便宜的纯文本模型(默认 `gpt-5.6-luna`)结合上下文和个人术语表做轻量整理。
-- 上下文只通过 macOS Accessibility API 在你主动按下快捷键时读取;**不截图、不 OCR、不申请屏幕录制权限**。
+<p align="center">
+  无账号、无服务器 — 用你自己的 OpenAI API Key,音频直接从你的 Mac 发给 OpenAI,<br/>
+  其余一切(Key、术语表、历史)只保存在本机。
+</p>
 
-## 功能
+---
 
-| 操作 | 快捷键 |
+## 安装
+
+1. 下载 [OpenVoice.dmg](../../releases/latest);
+2. 打开后把 **OpenVoice** 拖进右边的 **Applications** 文件夹;
+3. 首次启动:在「应用程序」里**右键 OpenVoice → 打开**(应用暂未经 Apple 公证,直接双击会被拦截)。
+
+## 配置
+
+首次启动会出现引导,跟着走完即可:
+
+1. **OpenAI API Key** — 在 [platform.openai.com](https://platform.openai.com) 创建(API 为预付费,需要有余额)。Key 只保存在 Mac 的钥匙串里;
+2. **麦克风权限** — 只在你说话时使用;
+3. **辅助功能权限** — 全局快捷键和把文字写进光标位置需要它。
+
+还有一步系统设置:**系统设置 → 键盘 → 「按下 🌐 键时」选择「无操作」**,否则 Fn 会触发系统自带的听写。
+
+完成后菜单栏会出现 OpenVoice 的图标,随时可以开始。
+
+## 使用
+
+| 操作 | 按键 |
 |---|---|
-| 语音输入 | `Fn`(按一次开始,再按一次结束) |
-| 翻译输入 | `Fn + 左 Shift` 开始,`Fn` 结束 |
-| 取消录音 | `Esc` |
+| 开始 / 结束语音输入 | `Fn` |
+| 翻译输入(说中文,出英文) | `Fn + 左 Shift` 开始,`Fn` 结束 |
+| 取消本次录音 | `Esc` |
 
-- 悬浮条显示录音音量与状态,可拖动,位置自动记忆,多显示器跟随当前窗口。
-- 选中一段文字后说指令(如"翻译成中文""把这个写短一点")会直接替换选中内容。
-- 个人术语表:手动添加/导入,或从你对刚插入文字的即时修改中自动学习(可关闭)。
-- 设置 → 高级 可查看每次请求实际发送给 OpenAI 的上下文与术语提示。
+说话时屏幕下方会出现一个小悬浮条,显示音量波形;再按一次 Fn,稍等一两秒,整理好的文字就出现在光标处。
 
-## 构建
+几个好用的细节:
 
-需要 Xcode 15+、[xcodegen](https://github.com/yonaskolb/XcodeGen)(`brew install xcodegen`)
-与 [dmgbuild](https://github.com/dmgbuild/dmgbuild)(`uv tool install dmgbuild`):
+- **对选中文字下指令**:选中一段文字,按 Fn 说「翻译成中文」「把这个写短一点」「整理成列表」,结果直接替换选中内容;
+- **翻译语言**:悬浮条右侧可以临时切换目标语言,默认语言在设置里改;
+- **术语表**:把人名、项目名、常被听错的词加进 设置 → 术语表,识别会优先用你的拼写;
+- **转录历史**:菜单栏图标 → 转录历史,每条都能一键复制;
+- **上下文**:默认会读取光标附近少量文字帮助识别,可在 设置 → 隐私 里逐项关闭;
+- 单次录音上限 10 分钟,最后一分钟悬浮条会显示倒计时,到时自动转录,内容不会丢。
 
-```bash
-./scripts/build.sh
-# → build/Build/Products/Release/OpenVoice.app
-# → dist/OpenVoice.dmg(打开后把 OpenVoice 拖进 Applications 即完成安装)
-```
-
-## 首次使用
-
-1. 启动后按引导填入 OpenAI API Key(即时验证,存入 Keychain);
-2. 授予 **麦克风** 与 **辅助功能** 权限;
-3. **重要**:在 系统设置 → 键盘 → "按下 🌐 键时" 选择 **"无操作"**,否则 Fn 会触发系统听写/表情面板;
-4. 在引导最后的输入框里试一句。
-
-### 常见问题
-
-- **快捷键突然失灵 / 读不到上下文**(系统设置里开关却是开的):TCC 里残留了旧签名的授权记录。执行
-  `tccutil reset Accessibility com.openvoice.app` 后重新授权。工程默认用本机 Developer ID 证书签名以保持签名稳定;若你的机器没有证书,把 `project.yml` 里的 `CODE_SIGN_IDENTITY` 改回 `"-"`(ad-hoc),但每次重编译后都需要重新授权。
-- **某些 App 里无法直接插入**:自动降级为剪贴板粘贴;两者都不行时结果会留在剪贴板并提示。
-
-## 隐私
-
-每次请求只发送:当次录音音频 + Accessibility API 能直接读到的少量光标附近文本 + 术语提示。其余一切(Key、术语表、设置)只存本机。详见 `spec.md` §18。
+费用参考:语音识别约 $0.006/分钟,文本整理几乎可以忽略——日常使用一个月通常不到一杯咖啡。
 
 ## License
 
-MIT
+个人及其他非商业用途免费使用([PolyForm Noncommercial 1.0.0](LICENSE.md));商业使用请先联系作者。
