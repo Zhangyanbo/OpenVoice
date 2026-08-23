@@ -10,6 +10,8 @@ final class LastRequestLog: ObservableObject {
     /// 最近一次失败的完整错误信息(悬浮条上只显示截断版)
     @Published var lastError: String?
     @Published var lastErrorAt: Date?
+    /// 最近一次文字插入的决策轨迹(AX/粘贴路径,由 TextInserter 写入)
+    @Published var insertTrace: String = ""
 }
 
 /// 核心状态机:idle → recording → transcribing → idle。

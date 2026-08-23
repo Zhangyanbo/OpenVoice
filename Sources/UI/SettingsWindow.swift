@@ -335,6 +335,12 @@ private struct AdvancedTab: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            Section("最近一次文字插入") {
+                Text(log.insertTrace.isEmpty ? "(无)" : log.insertTrace)
+                    .font(.system(size: 11, design: .monospaced))
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
             Section("最近一次错误") {
                 if let error = log.lastError {
                     if let at = log.lastErrorAt {
