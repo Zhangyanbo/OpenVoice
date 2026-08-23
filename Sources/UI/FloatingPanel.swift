@@ -27,6 +27,7 @@ final class PanelModel: ObservableObject {
 /// - 可拖动,位置持久化;用完自动消失。
 final class FloatingPanelController: NSObject, NSWindowDelegate {
     private var panel: NSPanel?
+    private var hostView: NSHostingView<RecordingBarView>?
     private let model = PanelModel()
     private let settings = SettingsStore.shared
     /// 拖动持久化与程序化摆放会同时触发 windowDidMove,区分之
@@ -76,6 +77,11 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     private func show() {
         let panel = ensurePanel()
+        // 错误信息可能较长,面板随内容自适应
+        if let hostView {
+            let size = hostView.fittingSize
+            panel.setContentSize(size)
+        }
         place(panel)
         panel.orderFrontRegardless()
     }
@@ -101,6 +107,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         host.frame = panel.contentRect(forFrameRect: panel.frame)
         host.autoresizingMask = [.width, .height]
         panel.contentView = host
+        hostView = host
 
         self.panel = panel
         return panel
@@ -211,8 +218,12 @@ struct RecordingBarView: View {
     }
 
     private func errorView(_ message: String) -> some View {
-        HStack(spacing: 12) {
-            Text(message).font(.system(size: 13))
+        HStack(alignment: .center, spacing: 12) {
+            Text(message)
+                .font(.system(size: 12))
+                .lineLimit(4)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 340, alignment: .leading)
             Button("重试") { model.onRetry?() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)

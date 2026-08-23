@@ -7,6 +7,9 @@ final class LastRequestLog: ObservableObject {
     @Published var contextSummary: String = "(还没有发送过请求)"
     @Published var termHint: String = ""
     @Published var timestamp: Date?
+    /// 最近一次失败的完整错误信息(悬浮条上只显示截断版)
+    @Published var lastError: String?
+    @Published var lastErrorAt: Date?
 }
 
 /// 核心状态机:idle → recording → transcribing → idle。
@@ -261,8 +264,11 @@ final class DictationController {
                                      target: InsertionTarget?, error: Error) {
         state = .idle
         failedAttempt = FailedAttempt(wav: wav, mode: mode, context: context, target: target)
-        NSLog("转录失败: \(error.localizedDescription)")
-        panel.showError("转录失败。")
+        let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        NSLog("转录失败: \(reason)")
+        LastRequestLog.shared.lastError = reason
+        LastRequestLog.shared.lastErrorAt = Date()
+        panel.showError("转录失败:\(reason)")
     }
 
     // MARK: - Prompt 组装(spec §3, §8, §13)

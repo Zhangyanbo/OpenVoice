@@ -335,6 +335,19 @@ private struct AdvancedTab: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            Section("最近一次错误") {
+                if let error = log.lastError {
+                    if let at = log.lastErrorAt {
+                        LabeledContent("时间", value: at.formatted(date: .omitted, time: .standard))
+                    }
+                    Text(error)
+                        .font(.system(size: 11, design: .monospaced))
+                        .textSelection(.enabled)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text("(无)").foregroundStyle(.secondary)
+                }
+            }
             Text("除以上内容与录音音频外,没有任何数据离开这台 Mac。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
