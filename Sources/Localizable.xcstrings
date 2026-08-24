@@ -361,12 +361,32 @@
         }
       }
     },
+    "光标放到任意 App → 按 Fn → 说话 → 再按 Fn → 文字出现在光标处。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Put the cursor in any app → press Fn → speak → press Fn again → text appears at the cursor."
+          }
+        }
+      }
+    },
     "全选": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Select All"
+          }
+        }
+      }
+    },
+    "关于": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About"
           }
         }
       }
@@ -477,6 +497,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Right Option"
+          }
+        }
+      }
+    },
+    "在 GitHub 上提交 Issue": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open an issue on GitHub"
           }
         }
       }
@@ -1031,6 +1061,16 @@
         }
       }
     },
+    "查看源代码与文档": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View source and documentation"
+          }
+        }
+      }
+    },
     "格式化程度": {
       "localizations": {
         "en": {
@@ -1197,6 +1237,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Click the field below, press %@, say something, then press it again."
+          }
+        }
+      }
+    },
+    "版本 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        }
+      }
+    },
+    "版本 %@（%@）": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@ (%@)"
           }
         }
       }
@@ -1677,6 +1737,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Error"
+          }
+        }
+      }
+    },
+    "问题反馈": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Report an Issue"
           }
         }
       }

@@ -10,7 +10,7 @@ final class SettingsWindowController {
     private let nav = SettingsNav()
 
     enum Tab: String, CaseIterable {
-        case general, personalization, privacy, glossary, history, request
+        case general, personalization, privacy, glossary, history, request, about
 
         var title: String {
             switch self {
@@ -20,6 +20,7 @@ final class SettingsWindowController {
             case .glossary: return tr("术语表")
             case .history: return tr("历史")
             case .request: return tr("请求")
+            case .about: return tr("关于")
             }
         }
 
@@ -31,6 +32,7 @@ final class SettingsWindowController {
             case .glossary: return "character.book.closed.fill"
             case .history: return "clock.arrow.circlepath"
             case .request: return "arrow.up.forward.app.fill"
+            case .about: return "info.circle.fill"
             }
         }
 
@@ -42,6 +44,7 @@ final class SettingsWindowController {
             case .glossary: return Color(red: 0.95, green: 0.61, blue: 0.19)
             case .history: return Color(red: 0.56, green: 0.45, blue: 0.86)
             case .request: return Color(red: 0.85, green: 0.35, blue: 0.30)
+            case .about: return Color(red: 0.52, green: 0.56, blue: 0.62)
             }
         }
     }
@@ -91,6 +94,7 @@ struct SettingsRootView: View {
                 case .glossary: GlossaryPane()
                 case .history: HistoryPane()
                 case .request: RequestPane()
+                case .about: AboutPane()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -1042,5 +1046,64 @@ private struct IconButton: View {
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(help)
+    }
+}
+
+// MARK: - 关于
+
+private struct AboutPane: View {
+    private static let repoURL = URL(string: "https://github.com/Zhangyanbo/OpenVoice")!
+    private static let issueURL = URL(string: "https://github.com/Zhangyanbo/OpenVoice/issues/new")!
+
+    private var versionText: String {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        if let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String, build != version {
+            return tr("版本 %@（%@）", version, build)
+        }
+        return tr("版本 %@", version)
+    }
+
+    var body: some View {
+        PaneScroll(title: tr("关于")) {
+            VStack(spacing: 18) {
+                // 头部:图标 + 名称 + 版本
+                VStack(spacing: 8) {
+                    AppMark(size: 72)
+                    Text("OpenVoice")
+                        .font(.system(size: 17, weight: .bold))
+                    Text(versionText)
+                        .font(.system(size: 11.5))
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 6)
+
+                SettingsCard {
+                    Link(destination: Self.repoURL) {
+                        SettingsRow(title: "GitHub", subtitle: tr("查看源代码与文档")) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    CardDivider()
+                    Link(destination: Self.issueURL) {
+                        SettingsRow(title: tr("问题反馈"), subtitle: tr("在 GitHub 上提交 Issue")) {
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Text(tr("光标放到任意 App → 按 Fn → 说话 → 再按 Fn → 文字出现在光标处。"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .multilineTextAlignment(.center)
+            }
+        }
     }
 }
