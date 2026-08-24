@@ -158,6 +158,8 @@ final class SettingsStore: ObservableObject {
     /// 唯一的音效总开关:关掉后任何情况下都不出声
     @Published var playSound: Bool { didSet { defaults.set(playSound, forKey: "playSound") } }
     @Published var showPanel: Bool { didSet { defaults.set(showPanel, forKey: "showPanel") } }
+    /// 过滤本机声音(AVAudioEngine Voice Processing):开会后/会议中避免录进电脑外放
+    @Published var filterLocalAudio: Bool { didSet { defaults.set(filterLocalAudio, forKey: "filterLocalAudio") } }
     @Published var launchAtLogin: Bool {
         didSet {
             defaults.set(launchAtLogin, forKey: "launchAtLogin")
@@ -214,6 +216,7 @@ final class SettingsStore: ObservableObject {
         formatLevel = FormatLevel(rawValue: defaults.string(forKey: "formatLevel") ?? "") ?? .plain
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true
         showPanel = defaults.object(forKey: "showPanel") as? Bool ?? true
+        filterLocalAudio = defaults.object(forKey: "filterLocalAudio") as? Bool ?? false
         launchAtLogin = defaults.object(forKey: "launchAtLogin") as? Bool ?? false
         primaryKey = TriggerKey(rawValue: defaults.string(forKey: "primaryKey") ?? "") ?? .fn
         altKey = TriggerKey(rawValue: defaults.string(forKey: "altKey") ?? "") ?? .none

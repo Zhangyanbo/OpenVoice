@@ -17,6 +17,8 @@ PAIRS = {
     "播放提示音": "Play Sounds",
     "录音开始与结束时": "When recording starts and ends",
     "显示语音悬浮条": "Show Floating Bar",
+    "过滤本机声音": "Filter Computer Audio",
+    "开启后过滤电脑播放的声音，适合会议中同时使用": "Filters out audio played by this computer, ideal for use during meetings",
     "悬浮条可拖动，位置会被记住": "Draggable; its position is remembered",
     "重置位置": "Reset Position",
     "在历史页显示最近一次请求详情": "Show details of the last request on the History tab",

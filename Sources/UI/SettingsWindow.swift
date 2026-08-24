@@ -263,6 +263,11 @@ private struct GeneralPane: View {
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
+                SettingsRow(title: tr("过滤本机声音"), subtitle: tr("开启后过滤电脑播放的声音，适合会议中同时使用")) {
+                    Toggle("", isOn: $settings.filterLocalAudio)
+                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
+                }
+                CardDivider()
                 SettingsRow(title: tr("显示语音悬浮条"), subtitle: tr("悬浮条可拖动，位置会被记住")) {
                     HStack(spacing: 10) {
                         Button(tr("重置位置")) { settings.clearPanelOrigin() }

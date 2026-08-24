@@ -651,6 +651,16 @@
         }
       }
     },
+    "开启后过滤电脑播放的声音，适合会议中同时使用": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filters out audio played by this computer, ideal for use during meetings"
+          }
+        }
+      }
+    },
     "开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。": {
       "localizations": {
         "en": {
@@ -1537,6 +1547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transcription failed: %@"
+          }
+        }
+      }
+    },
+    "过滤本机声音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter Computer Audio"
           }
         }
       }

@@ -6,6 +6,7 @@ import AVFoundation
 final class AudioRecorder {
     private var engine: AVAudioEngine?
     private var converter: AVAudioConverter?
+    private var converterSourceSampleRate: Double = 0
     private var pcmData = Data()
     private let targetSampleRate: Double = 16000
 
@@ -20,23 +21,30 @@ final class AudioRecorder {
 
         let engine = AVAudioEngine()
         let input = engine.inputNode
-        let inputFormat = input.outputFormat(forBus: 0)
-        guard inputFormat.sampleRate > 0, inputFormat.channelCount > 0 else {
-            throw NSError(domain: "AudioRecorder", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: tr("没有可用的录音设备。")])
+        // 开启后走系统 Voice Processing(回声消除),过滤本机外放的声音,
+        // 适合会议中同时使用;必须在读取格式/装 tap 之前设置,否则格式会变。
+        // 初始化失败时静默降级为普通录音,不打断听写(spec §7 同款思路)
+        if SettingsStore.shared.filterLocalAudio {
+            do {
+                try input.setVoiceProcessingEnabled(true)
+            } catch {
+                NSLog("OpenVoice: voice processing unavailable, falling back (%@)", error.localizedDescription)
+            }
         }
-
+        // VP 开启后 input node 上报的是虚拟聚合格式(多声道 deinterleaved),
+        // 按它装 tap 会录到静音;必须用 nil 格式装 tap,转换器在回调里按
+        // buffer 实际格式现建(实测验证)
         guard let targetFormat = AVAudioFormat(commonFormat: .pcmFormatInt16,
                                                sampleRate: targetSampleRate,
                                                channels: 1,
-                                               interleaved: true),
-              let converter = AVAudioConverter(from: inputFormat, to: targetFormat) else {
+                                               interleaved: true) else {
             throw NSError(domain: "AudioRecorder", code: 2,
                           userInfo: [NSLocalizedDescriptionKey: tr("无法初始化音频转换。")])
         }
-        self.converter = converter
+        converter = nil
+        converterSourceSampleRate = 0
 
-        input.installTap(onBus: 0, bufferSize: 4096, format: inputFormat) { [weak self] buffer, _ in
+        input.installTap(onBus: 0, bufferSize: 4096, format: nil) { [weak self] buffer, _ in
             self?.process(buffer: buffer, targetFormat: targetFormat)
         }
 
@@ -54,6 +62,7 @@ final class AudioRecorder {
         engine?.stop()
         engine = nil
         converter = nil
+        converterSourceSampleRate = 0
 
         let minBytes = Int(targetSampleRate * 0.3) * 2
         guard pcmData.count >= minBytes else { return nil }
@@ -67,6 +76,7 @@ final class AudioRecorder {
         engine?.stop()
         engine = nil
         converter = nil
+        converterSourceSampleRate = 0
         pcmData = Data()
     }
 
@@ -84,9 +94,33 @@ final class AudioRecorder {
             }
         }
 
+        // VP 模式下 tap 给的是多声道 deinterleaved 聚合格式,直接交给
+        // AVAudioConverter 会输出全零(实测);先抽第 0 声道拼成单声道
+        // Float32 再转换。普通模式下声道数为 1,原样直通。
+        let source: AVAudioPCMBuffer
+        if buffer.format.channelCount == 1 {
+            source = buffer
+        } else {
+            guard let monoFormat = AVAudioFormat(commonFormat: .pcmFormatFloat32,
+                                                 sampleRate: buffer.format.sampleRate,
+                                                 channels: 1, interleaved: false),
+                  let mono = AVAudioPCMBuffer(pcmFormat: monoFormat,
+                                              frameCapacity: buffer.frameLength),
+                  let dst = mono.floatChannelData?[0],
+                  let srcCh = buffer.floatChannelData?[0] else { return }
+            mono.frameLength = buffer.frameLength
+            memcpy(dst, srcCh, Int(buffer.frameLength) * MemoryLayout<Float>.size)
+            source = mono
+        }
+
+        // 转换器按源格式采样率缓存(VP 开启前后格式不同)
+        if converter == nil || converterSourceSampleRate != source.format.sampleRate {
+            converter = AVAudioConverter(from: source.format, to: targetFormat)
+            converterSourceSampleRate = source.format.sampleRate
+        }
         guard let converter else { return }
-        let ratio = targetFormat.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio) + 64
+        let ratio = targetFormat.sampleRate / source.format.sampleRate
+        let capacity = AVAudioFrameCount(Double(source.frameLength) * ratio) + 64
         guard let out = AVAudioPCMBuffer(pcmFormat: targetFormat, frameCapacity: capacity) else { return }
 
         var fed = false
@@ -98,7 +132,7 @@ final class AudioRecorder {
             }
             fed = true
             outStatus.pointee = .haveData
-            return buffer
+            return source
         }
         guard error == nil, out.frameLength > 0, let int16 = out.int16ChannelData?[0] else { return }
         pcmData.append(UnsafeBufferPointer(start: int16, count: Int(out.frameLength)))
