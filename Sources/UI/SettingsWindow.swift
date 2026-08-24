@@ -278,7 +278,7 @@ private struct GeneralPane: View {
                             Text(mode.displayName).tag(mode)
                         }
                     }
-                    .labelsHidden().fixedSize()
+                    .labelsHidden().fixedSize().id(L10n.effective)
                 }
                 CardDivider()
                 SettingsRow(title: "Debug", subtitle: tr("在历史页显示最近一次请求详情")) {
@@ -295,7 +295,7 @@ private struct GeneralPane: View {
                             Text(key.displayName).tag(key)
                         }
                     }
-                    .labelsHidden().fixedSize()
+                    .labelsHidden().fixedSize().id(L10n.effective)
                 }
                 CardDivider()
                 SettingsRow(title: tr("备用快捷键")) {
@@ -304,7 +304,7 @@ private struct GeneralPane: View {
                             Text(key.displayName).tag(key)
                         }
                     }
-                    .labelsHidden().fixedSize()
+                    .labelsHidden().fixedSize().id(L10n.effective)
                 }
                 CardDivider()
                 SettingsRow(title: tr("翻译")) {
@@ -426,7 +426,7 @@ private struct LanguageCard: View {
                         Text(lang.displayName).tag(lang)
                     }
                 }
-                .labelsHidden().fixedSize()
+                .labelsHidden().fixedSize().id(L10n.effective)
             }
             CardDivider()
             SettingsRow(title: tr("语音识别语言")) {
@@ -435,7 +435,7 @@ private struct LanguageCard: View {
                         Text(name).tag(code)
                     }
                 }
-                .labelsHidden().fixedSize()
+                .labelsHidden().fixedSize().id(L10n.effective)
             }
             CardDivider()
             ForEach(Array(settings.targetLanguages.enumerated()), id: \.offset) { index, language in
@@ -548,7 +548,7 @@ private struct OpenAICard: View {
                         Text(model.isEmpty ? tr("默认（%@）", SettingsStore.defaultTranscribeModel) : model).tag(model)
                     }
                 }
-                .labelsHidden().fixedSize()
+                .labelsHidden().fixedSize().id(L10n.effective)
             }
             CardDivider()
             SettingsRow(title: tr("语言模型")) {
@@ -557,7 +557,7 @@ private struct OpenAICard: View {
                         Text(model.isEmpty ? tr("默认（%@）", SettingsStore.defaultLLMModel) : model).tag(model)
                     }
                 }
-                .labelsHidden().fixedSize()
+                .labelsHidden().fixedSize().id(L10n.effective)
             }
         }
     }
