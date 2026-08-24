@@ -173,10 +173,12 @@ final class HistoryStore: ObservableObject {
         trimRetainedRecordings()
     }
 
-    /// 从最新往旧数,只保留前 maxRetainedRecordings 条的录音文件
+    /// 从最新往旧数,只保留前 maxRetainedRecordings 条的录音文件。
+    /// 注意 entries 是新的在前(insert at 0),必须正序遍历;
+    /// 曾经写成 .reversed() 导致保留的是最旧的、删掉刚录的(spec 回归教训)
     private func trimRetainedRecordings() {
         var count = 0
-        for i in entries.indices.reversed() where recordingIDs.contains(entries[i].id) {
+        for i in entries.indices where recordingIDs.contains(entries[i].id) {
             count += 1
             if count > Self.maxRetainedRecordings {
                 deleteRecordingFile(entries[i].id)
