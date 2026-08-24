@@ -10,12 +10,19 @@ import Combine
 ///   不依赖任何可能不发生的回调);
 /// - 启动时还会删除孤儿录音文件(对应历史条目已不存在),磁盘占用有硬上限。
 final class HistoryStore: ObservableObject {
-    /// 重新转录所需的原始模式信息(历史条目里只存可编码的简单值)
+    /// 重新转录所需的原始模式信息(历史条目里只存可编码的简单值)。
+    /// context* 为录音瞬间的上下文快照,保证重新转录结果可复现;
+    /// 全部可选——旧版本条目没有这些字段,解码为 nil 后回退到现场采集。
     struct RetryInfo: Codable {
         /// "dictation" / "translation"
         var kind: String
         /// 翻译模式的目标语言
         var target: String?
+        var contextApp: String?
+        var contextWindow: String?
+        var contextSelected: String?
+        var contextBefore: String?
+        var contextAfter: String?
     }
 
     struct Entry: Codable, Identifiable {

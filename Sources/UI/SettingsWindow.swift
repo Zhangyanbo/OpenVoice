@@ -781,11 +781,12 @@ private struct HistoryPane: View {
                                                guard history.retranscribingID == nil,
                                                      let wav = history.recordingData(for: entry.id) else { return }
                                                history.setRetranscribing(entry.id)
-                                               let request = RetranscribeRequest(
-                                                   entryID: entry.id,
-                                                   wav: wav,
-                                                   kind: entry.retry?.kind ?? "dictation",
-                                                   target: entry.retry?.target)
+                                                let request = RetranscribeRequest(
+                                                    entryID: entry.id,
+                                                    wav: wav,
+                                                    kind: entry.retry?.kind ?? "dictation",
+                                                    target: entry.retry?.target,
+                                                    retry: entry.retry)
                                                NotificationCenter.default.post(name: .retranscribeRequest,
                                                                                object: request)
                                            })

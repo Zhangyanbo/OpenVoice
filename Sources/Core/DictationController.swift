@@ -8,6 +8,8 @@ struct RetranscribeRequest {
     let wav: Data
     let kind: String
     let target: String?
+    /// 录音瞬间的上下文快照;旧版本条目为 nil,重转录时现场采集
+    let retry: HistoryStore.RetryInfo?
 }
 
 extension Notification.Name {
@@ -287,7 +289,7 @@ final class DictationController {
                 // 轻量语言模型整理
                 var final = raw
                 do {
-                    final = try await client.chat(model: llmModel, system: system, user: user)
+                    final = try await client.chat(model: llmModel, system: system, user: user, transcript: raw)
                     if debug { LastRequestLog.shared.response = final }
                     if final.isEmpty { final = raw }
                 } catch {
@@ -319,11 +321,32 @@ final class DictationController {
         }
     }
 
-    private func retryInfo(for mode: Mode) -> HistoryStore.RetryInfo {
+    private func retryInfo(for mode: Mode, context: DictationContext) -> HistoryStore.RetryInfo {
+        var info: HistoryStore.RetryInfo
         switch mode {
-        case .dictation: return HistoryStore.RetryInfo(kind: "dictation", target: nil)
-        case .translation(let target): return HistoryStore.RetryInfo(kind: "translation", target: target)
+        case .dictation: info = HistoryStore.RetryInfo(kind: "dictation", target: nil)
+        case .translation(let target): info = HistoryStore.RetryInfo(kind: "translation", target: target)
         }
+        // 存下录音瞬间的上下文,重新转录时才能复现当时的请求
+        info.contextApp = context.appName
+        info.contextWindow = context.windowTitle
+        info.contextSelected = context.selectedText
+        info.contextBefore = context.beforeCursor
+        info.contextAfter = context.afterCursor
+        return info
+    }
+
+    /// 从历史条目还原录音瞬间的上下文;没有任何字段则返回 nil(旧版本条目)
+    private static func storedContext(from retry: HistoryStore.RetryInfo?) -> DictationContext? {
+        guard let retry else { return nil }
+        let context = DictationContext(
+            appName: retry.contextApp,
+            bundleID: nil,
+            windowTitle: retry.contextWindow,
+            selectedText: retry.contextSelected,
+            beforeCursor: retry.contextBefore,
+            afterCursor: retry.contextAfter)
+        return context.isEmpty ? nil : context
     }
 
     private func insert(text: String, target: InsertionTarget?, mode: Mode,
@@ -336,7 +359,7 @@ final class DictationController {
             case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
             }
             HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName,
-                                    failed: false, wav: wav, retry: retryInfo(for: mode))
+                                    failed: false, wav: wav, retry: retryInfo(for: mode, context: context))
         }
         // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
         panel.hide()
@@ -373,7 +396,7 @@ final class DictationController {
             case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
             }
             HistoryStore.shared.add(text: "", mode: modeLabel, appName: context.appName,
-                                    failed: true, wav: wav, retry: retryInfo(for: mode))
+                                    failed: true, wav: wav, retry: retryInfo(for: mode, context: context))
         }
         panel.showError(tr("转录失败：%@", reason))
     }
@@ -409,7 +432,13 @@ final class DictationController {
         } else {
             mode = .dictation
         }
-        let (context, _) = AXContextReader.capture(settings: settings)
+        // 优先用条目里存的录音瞬间上下文(可复现);旧版本条目没有快照,现场采集兜底
+        let context: DictationContext
+        if let stored = Self.storedContext(from: request.retry) {
+            context = stored
+        } else {
+            context = AXContextReader.capture(settings: settings).0
+        }
         state = .transcribing
 
         Task {
@@ -429,7 +458,7 @@ final class DictationController {
                 let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
                 do {
                     let polished = try await client.chat(model: settings.effectiveLLMModel,
-                                                         system: system, user: user)
+                                                         system: system, user: user, transcript: raw)
                     return polished.isEmpty ? raw : polished
                 } catch {
                     // 与主流程一致:仅普通听写可安全回落到原始转录,翻译模式一律失败
@@ -447,7 +476,7 @@ final class DictationController {
                         entry.text = text
                         entry.failed = false
                         entry.appName = context.appName ?? entry.appName
-                        entry.retry = self.retryInfo(for: mode)
+                        entry.retry = self.retryInfo(for: mode, context: context)
                     }
                     TextInserter.insert(text, target: nil) { _ in }
                 }
