@@ -7,7 +7,7 @@ enum OnboardingStep: Int, CaseIterable {
     case welcome, provider, microphone, accessibility, tryIt
 }
 
-/// 首次启动引导(spec §16):欢迎 → 服务商 → 麦克风 → 辅助功能 → 试一下。
+/// 首次启动引导(spec §16):欢迎 → 模型来源 → 麦克风 → 辅助功能 → 试一下。
 /// 无账号、无注册,完成后不再出现。
 final class OnboardingWindowController {
     static let shared = OnboardingWindowController()
@@ -112,7 +112,7 @@ private struct OnboardingView: View {
                 Text(tr("把光标放到任意地方，按 Fn 说话，再按 Fn，\n文字直接出现。"))
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)
-                Text(tr("无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。"))
+                Text(tr("无账号、无中间服务器。云端 API Key 只保存在本机钥匙串；\n选择本地模型时，音频不会离开这台 Mac。"))
                     .font(.system(size: 11.5))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
@@ -121,7 +121,7 @@ private struct OnboardingView: View {
 
         case .provider:
             VStack(alignment: .leading, spacing: 12) {
-                Text(tr("添加服务商")).font(.title2.bold())
+                Text(tr("添加模型来源")).font(.title2.bold())
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
                     ForEach(ModelProviderKind.allCases) { kind in
                         let configured = configuredProviderKinds.contains(kind)
@@ -257,7 +257,7 @@ private struct OnboardingView: View {
 
     private func refreshConfiguredProviders() {
         configuredProviderKinds = Set(settings.modelProviders.compactMap { provider in
-            KeychainStore.loadAPIKey(providerID: provider.id) == nil ? nil : provider.kind
+            settings.isProviderConfigured(provider) ? provider.kind : nil
         })
     }
 }
@@ -266,6 +266,7 @@ private struct OnboardingProviderKeySheet: View {
     let kind: ModelProviderKind
     let onAdded: () -> Void
     @ObservedObject private var settings = SettingsStore.shared
+    @ObservedObject private var ollama = OllamaModelManager.shared
     @Environment(\.dismiss) private var dismiss
     @State private var keyInput = ""
     @State private var status = ""
@@ -278,14 +279,25 @@ private struct OnboardingProviderKeySheet: View {
                 Text(tr("添加 %@", kind.displayName))
                     .font(.system(size: 18, weight: .semibold))
             }
-            SecureField(tr("API Key"), text: $keyInput)
-                .textFieldStyle(.roundedBorder)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(kind.apiKeyHelp)
-                    .foregroundStyle(.secondary)
-                Link(tr("获取 API Key"), destination: kind.apiKeyURL)
+            Text(kind.introduction)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            if kind.requiresAPIKey {
+                SecureField(tr("API Key"), text: $keyInput)
+                    .textFieldStyle(.roundedBorder)
+                VStack(alignment: .leading, spacing: 4) {
+                    if let help = kind.apiKeyHelp {
+                        Text(help).foregroundStyle(.secondary)
+                    }
+                    if let url = kind.apiKeyURL {
+                        Link(tr("获取 API Key"), destination: url)
+                    }
+                }
+                .font(.system(size: 11))
+            } else if kind == .ollama {
+                OllamaInstallationView()
             }
-            .font(.system(size: 11))
             if !status.isEmpty {
                 Text(status)
                     .font(.system(size: 11))
@@ -294,9 +306,14 @@ private struct OnboardingProviderKeySheet: View {
             HStack {
                 Spacer()
                 Button(tr("取消")) { dismiss() }
-                Button(validating ? tr("正在验证…") : tr("验证并添加"), action: validate)
+                Button(validating ? tr("正在验证…")
+                                  : (kind.requiresAPIKey ? tr("验证并添加") : tr("添加")),
+                       action: validate)
                     .buttonStyle(.borderedProminent)
-                    .disabled(keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validating)
+                    .disabled((kind.requiresAPIKey
+                               && keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                              || (kind == .ollama && !ollama.ollamaInstalled)
+                              || validating)
             }
         }
         .padding(22)
@@ -305,6 +322,12 @@ private struct OnboardingProviderKeySheet: View {
 
     private func validate() {
         let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard kind.requiresAPIKey else {
+            guard settings.configureOnboardingProvider(kind: kind) else { return }
+            onAdded()
+            dismiss()
+            return
+        }
         validating = true
         status = ""
         Task {
@@ -312,6 +335,7 @@ private struct OnboardingProviderKeySheet: View {
                 switch kind {
                 case .openAI: try await OpenAIClient(apiKey: key).validateKey()
                 case .google: try await GeminiClient(apiKey: key).validateKey()
+                case .ollama: break
                 }
                 await MainActor.run {
                     guard settings.configureOnboardingProvider(kind: kind, apiKey: key) else {

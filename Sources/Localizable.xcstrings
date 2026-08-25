@@ -41,22 +41,22 @@
         }
       }
     },
+    "%lld%%": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%%"
+          }
+        }
+      }
+    },
     "API Key": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "API Key"
-          }
-        }
-      }
-    },
-    "API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "API keys are stored only in the macOS Keychain. You don't need to choose a model when adding a provider."
           }
         }
       }
@@ -211,6 +211,116 @@
         }
       }
     },
+    "Ollama 下载意外中断，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The Ollama download ended unexpectedly. Try again."
+          }
+        }
+      }
+    },
+    "Ollama 安装失败，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama installation failed. Try again."
+          }
+        }
+      }
+    },
+    "Ollama 尚未安装。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama is not installed."
+          }
+        }
+      }
+    },
+    "Ollama 已安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama Installed"
+          }
+        }
+      }
+    },
+    "Ollama 当前未运行；实际使用这个模型时会自动启动。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama is not running. It will start automatically when this model is used."
+          }
+        }
+      }
+    },
+    "Ollama 无法启动，请打开 Ollama 后重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama could not start. Open Ollama and try again."
+          }
+        }
+      }
+    },
+    "Ollama 未运行；启动后即可下载或使用这个模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama is not running. Start it to download or use this model."
+          }
+        }
+      }
+    },
+    "Ollama 模型下载失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama model download failed: %@"
+          }
+        }
+      }
+    },
+    "Ollama 模型下载请求失败（%lld）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama model download request failed (%lld)."
+          }
+        }
+      }
+    },
+    "Ollama 请求失败（%lld）：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama request failed (%lld): %@"
+          }
+        }
+      }
+    },
+    "Ollama 返回了无法解析的结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama returned a response that could not be parsed."
+          }
+        }
+      }
+    },
     "OpenAI 无法验证这个 API Key": {
       "localizations": {
         "en": {
@@ -267,6 +377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "OpenVoice %@ is available"
+          }
+        }
+      }
+    },
+    "OpenVoice 将下载并验证 Ollama 官方版本，然后安装到“应用程序”文件夹。只有当前账户没有写入权限时，macOS 才会要求管理员授权。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenVoice will download and verify the official Ollama release, then install it in Applications. macOS will request administrator authorization only if the current account cannot write there."
           }
         }
       }
@@ -401,6 +521,36 @@
         }
       }
     },
+    "下载": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download"
+          }
+        }
+      }
+    },
+    "下载并安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Download && Install"
+          }
+        }
+      }
+    },
+    "下载的 Ollama 无法通过签名验证，安装已停止。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The downloaded Ollama failed signature verification. Installation was stopped."
+          }
+        }
+      }
+    },
     "个性化": {
       "localizations": {
         "en": {
@@ -427,6 +577,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chinese"
+          }
+        }
+      }
+    },
+    "云端 API Key 只保存在 macOS 钥匙串中；本地来源无需密钥。添加来源时无需选择模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Cloud API keys are stored only in the macOS Keychain; local sources need no key. You don't need to choose a model when adding a source."
           }
         }
       }
@@ -591,12 +751,12 @@
         }
       }
     },
-    "删除服务商": {
+    "删除模型来源": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete Provider"
+            "value": "Delete Model Source"
           }
         }
       }
@@ -831,6 +991,26 @@
         }
       }
     },
+    "安装 Ollama": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install Ollama"
+          }
+        }
+      }
+    },
+    "安装 Ollama？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Install Ollama?"
+          }
+        }
+      }
+    },
     "完成": {
       "localizations": {
         "en": {
@@ -871,12 +1051,32 @@
         }
       }
     },
-    "将删除 %@ 的 API Key，并移除引用该服务商的模型。API Key 删除后无法找回。": {
+    "将删除 %@ 的 API Key，并移除引用该来源的模型。API Key 删除后无法找回。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "This will delete the API key for %@ and remove models that use this provider. The API key cannot be recovered after deletion."
+            "value": "This will delete the API key for %@ and remove models that use this source. The API key cannot be recovered after deletion."
+          }
+        }
+      }
+    },
+    "将移除 %@，并删除引用该来源的模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This will remove %@ and delete models that use this source."
+          }
+        }
+      }
+    },
+    "尚未安装 Ollama": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama is not installed"
           }
         }
       }
@@ -951,6 +1151,16 @@
         }
       }
     },
+    "已取消安装 Ollama。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ollama installation was cancelled."
+          }
+        }
+      }
+    },
     "已复制": {
       "localizations": {
         "en": {
@@ -1021,6 +1231,16 @@
         }
       }
     },
+    "已配置": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configured"
+          }
+        }
+      }
+    },
     "开启后过滤电脑播放的声音，适合会议中同时使用": {
       "localizations": {
         "en": {
@@ -1031,22 +1251,22 @@
         }
       }
     },
+    "开启后，对应内容会随每次语音请求交给当前模型，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When enabled, the corresponding content is provided to the active model with each voice request to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is provided while disabled."
+          }
+        }
+      }
+    },
     "开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "When enabled, the corresponding content is sent with each voice request to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled."
-          }
-        }
-      }
-    },
-    "开启后，对应内容会随每次语音请求发送给当前模型的服务商，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "When enabled, the corresponding content is sent with each voice request to the provider of the active model to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled."
           }
         }
       }
@@ -1361,12 +1581,22 @@
         }
       }
     },
-    "无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。": {
+    "无法连接 Ollama。请确认 Ollama 已安装并正在运行。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No account and no intermediary server. Your API key stays in the local Keychain;\naudio goes straight from this Mac to the selected provider."
+            "value": "Could not connect to Ollama. Make sure Ollama is installed and running."
+          }
+        }
+      }
+    },
+    "无账号、无中间服务器。云端 API Key 只保存在本机钥匙串；\n选择本地模型时，音频不会离开这台 Mac。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account and no intermediary server. Cloud API keys stay in the local Keychain;\nwhen you choose a local model, audio never leaves this Mac."
           }
         }
       }
@@ -1377,6 +1607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No account, no server. Your OpenAI API key stays in the local Keychain;\naudio goes straight from this Mac to OpenAI."
+          }
+        }
+      }
+    },
+    "无需 API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No API Key"
           }
         }
       }
@@ -1401,12 +1641,12 @@
         }
       }
     },
-    "是否删除服务商？": {
+    "是否删除模型来源？": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Delete this provider?"
+            "value": "Delete this model source?"
           }
         }
       }
@@ -1551,26 +1791,6 @@
         }
       }
     },
-    "服务商": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Providers"
-          }
-        }
-      }
-    },
-    "服务商已移除": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Provider Removed"
-          }
-        }
-      }
-    },
     "未授权": {
       "localizations": {
         "en": {
@@ -1597,6 +1817,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not Set"
+          }
+        }
+      }
+    },
+    "未连接": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not Connected"
+          }
+        }
+      }
+    },
+    "本地运行": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Runs locally"
           }
         }
       }
@@ -1671,12 +1911,12 @@
         }
       }
     },
-    "模型 %@ 引用的服务商不存在。": {
+    "模型 %@ 引用的来源不存在。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "The provider referenced by model %@ does not exist."
+            "value": "The source referenced by model %@ does not exist."
           }
         }
       }
@@ -1687,6 +1927,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Model Response"
+          }
+        }
+      }
+    },
+    "模型来源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model Sources"
+          }
+        }
+      }
+    },
+    "模型来源已移除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model Source Removed"
           }
         }
       }
@@ -1707,6 +1967,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Downloading…"
+          }
+        }
+      }
+    },
+    "正在下载并安装 Ollama…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading and installing Ollama…"
           }
         }
       }
@@ -1791,12 +2061,12 @@
         }
       }
     },
-    "没有可用的服务商或 API Key。": {
+    "没有可用的模型来源或 API Key。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "No provider or API key is available."
+            "value": "No model source or API key is available."
           }
         }
       }
@@ -1851,16 +2121,6 @@
         }
       }
     },
-    "添加服务商": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Add Provider"
-          }
-        }
-      }
-    },
     "添加术语": {
       "localizations": {
         "en": {
@@ -1877,6 +2137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Add Model"
+          }
+        }
+      }
+    },
+    "添加模型来源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Model Source"
           }
         }
       }
@@ -1971,22 +2241,22 @@
         }
       }
     },
-    "移除服务商": {
-      "localizations": {
-        "en": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Remove Provider"
-          }
-        }
-      }
-    },
     "移除模型": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Remove Model"
+          }
+        }
+      }
+    },
+    "移除模型来源": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Model Source"
           }
         }
       }
@@ -2437,6 +2707,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "General"
+          }
+        }
+      }
+    },
+    "通过本机 Ollama 运行模型，无需 API Key。请先在 Ollama 中下载所选模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Runs models through Ollama on this Mac with no API key. Download the selected model in Ollama first."
           }
         }
       }

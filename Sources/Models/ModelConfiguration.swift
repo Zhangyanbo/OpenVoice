@@ -1,10 +1,11 @@
 import Foundation
 
-/// 服务商类型与具体账户实例分离：同一服务商可以添加多个密钥，
-/// 模型则通过 providerID 引用其中一个实例。
+/// 模型来源类型与具体实例分离：同一云端来源可以添加多个密钥，
+/// 本地来源则无需凭据。模型通过 providerID 引用其中一个实例。
 enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case openAI
     case google
+    case ollama
 
     var id: String { rawValue }
 
@@ -12,8 +13,11 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         switch self {
         case .openAI: return "OpenAI"
         case .google: return "Google"
+        case .ollama: return "Ollama"
         }
     }
+
+    var requiresAPIKey: Bool { self != .ollama }
 
     func presets(for capability: ModelCapability) -> [ModelPreset] {
         switch (self, capability) {
@@ -41,6 +45,13 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
                 ModelPreset(id: "gemini-3.6-flash", displayName: "Gemini 3.6 Flash"),
                 ModelPreset(id: "gemini-3.7-flash", displayName: "Gemini 3.7 Flash"),
             ]
+        case (.ollama, .transcription), (.ollama, .language):
+            // Gemma 4 的 QAT 版本更适合 16 GB 机器；暂时只开放这两个经过
+            // 音频输入验证的轻量型号，不把 Ollama 的完整目录暴露给用户。
+            return [
+                ModelPreset(id: "gemma4:e2b-it-qat", displayName: "Gemma 4 E2B (QAT)"),
+                ModelPreset(id: "gemma4:e4b-it-qat", displayName: "Gemma 4 E4B (QAT)"),
+            ]
         }
     }
 
@@ -55,24 +66,31 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case (.google, .transcription), (.google, .language):
             // Flash-Lite 先处理低成本轻任务，较强的 Flash 只在失败时兜底。
             return Array(presets(for: capability).prefix(2))
+        case (.ollama, .transcription), (.ollama, .language):
+            // 首次添加只启用更轻的 E2B；E4B 可在设置中手动加入回退链。
+            return Array(presets(for: capability).prefix(1))
         }
     }
 
-    var apiKeyHelp: String {
+    var apiKeyHelp: String? {
         switch self {
         case .openAI:
             return tr("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
         case .google:
             return tr("在 Google AI Studio 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
+        case .ollama:
+            return nil
         }
     }
 
-    var apiKeyURL: URL {
+    var apiKeyURL: URL? {
         switch self {
         case .openAI:
             return URL(string: "https://platform.openai.com/api-keys")!
         case .google:
             return URL(string: "https://aistudio.google.com/api-keys")!
+        case .ollama:
+            return nil
         }
     }
 
@@ -82,6 +100,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("提供专用语音识别模型和 GPT 语言模型，转录准确、稳定。")
         case .google:
             return tr("使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。")
+        case .ollama:
+            return tr("通过本机 Ollama 运行模型，无需 API Key。请先在 Ollama 中下载所选模型。")
         }
     }
 
@@ -112,6 +132,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case (.google, .language, "gemini-3.6-flash"),
              (.google, .language, "gemini-3.7-flash"):
             return tr("输入 $%@ · 输出 $%@/百万 token", "0.75", "3.75")
+        case (.ollama, _, _):
+            return tr("本地运行")
         default:
             return nil
         }

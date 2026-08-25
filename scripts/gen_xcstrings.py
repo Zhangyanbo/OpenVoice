@@ -90,8 +90,8 @@ PAIRS = {
     "上下文": "Context",
     "开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。":
         "When enabled, the corresponding content is sent with each voice request to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled.",
-    "开启后，对应内容会随每次语音请求发送给当前模型的服务商，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。":
-        "When enabled, the corresponding content is sent with each voice request to the provider of the active model to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled.",
+    "开启后，对应内容会随每次语音请求交给当前模型，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。":
+        "When enabled, the corresponding content is provided to the active model with each voice request to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is provided while disabled.",
     "使用当前 App 上下文": "Use Current App Context",
     "App 名称与窗口标题": "App name and window title",
     "读取光标附近文字": "Read Text Near Cursor",
@@ -130,24 +130,26 @@ PAIRS = {
     "设为默认": "Set as Default",
     "添加翻译语言，如：日语": "Add a translation language, e.g. Japanese",
     "添加": "Add",
-    # 服务商与模型
-    "服务商": "Providers",
-    "API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。":
-        "API keys are stored only in the macOS Keychain. You don't need to choose a model when adding a provider.",
-    "添加服务商": "Add Provider",
+    # 模型来源与模型
+    "模型来源": "Model Sources",
+    "云端 API Key 只保存在 macOS 钥匙串中；本地来源无需密钥。添加来源时无需选择模型。":
+        "Cloud API keys are stored only in the macOS Keychain; local sources need no key. You don't need to choose a model when adding a source.",
+    "添加模型来源": "Add Model Source",
     "添加 %@": "Add %@",
     "验证并添加": "Validate && Add",
-    "移除服务商": "Remove Provider",
-    "是否删除服务商？": "Delete this provider?",
-    "删除服务商": "Delete Provider",
-    "将删除 %@ 的 API Key，并移除引用该服务商的模型。API Key 删除后无法找回。":
-        "This will delete the API key for %@ and remove models that use this provider. The API key cannot be recovered after deletion.",
+    "移除模型来源": "Remove Model Source",
+    "是否删除模型来源？": "Delete this model source?",
+    "删除模型来源": "Delete Model Source",
+    "将删除 %@ 的 API Key，并移除引用该来源的模型。API Key 删除后无法找回。":
+        "This will delete the API key for %@ and remove models that use this source. The API key cannot be recovered after deletion.",
+    "将移除 %@，并删除引用该来源的模型。":
+        "This will remove %@ and delete models that use this source.",
     "按从上到下的顺序尝试。当前模型失败时，自动切换到下一个。":
         "Models are tried from top to bottom. If one fails, the next model is used automatically.",
     "语音识别成功后，按从上到下的顺序尝试整理或翻译。":
         "After transcription succeeds, models are tried from top to bottom for polishing or translation.",
     "添加模型": "Add Model",
-    "服务商已移除": "Provider Removed",
+    "模型来源已移除": "Model Source Removed",
     "上移": "Move Up",
     "下移": "Move Down",
     "移除模型": "Remove Model",
@@ -161,8 +163,8 @@ PAIRS = {
         "All transcription models failed. Last error: %@",
     "所有语言模型均失败。最后一次错误：%@":
         "All language models failed. Last error: %@",
-    "没有可用的服务商或 API Key。": "No provider or API key is available.",
-    "模型 %@ 引用的服务商不存在。": "The provider referenced by model %@ does not exist.",
+    "没有可用的模型来源或 API Key。": "No model source or API key is available.",
+    "模型 %@ 引用的来源不存在。": "The source referenced by model %@ does not exist.",
     "%@ 尚未设置 API Key。": "%@ does not have an API key.",
     # 旧 OpenAI 卡片（保留条目供迁移与引导使用）
     "默认模型即当前推荐，普通使用无需修改。API Key 只保存在 macOS 钥匙串。":
@@ -174,6 +176,33 @@ PAIRS = {
     "已保存到 Keychain": "Saved to Keychain",
     "OpenAI 无法验证这个 API Key": "OpenAI could not validate this API key",
     "未设置": "Not Set",
+    "无需 API Key": "No API Key",
+    "下载": "Download",
+    "已配置": "Configured",
+    "未连接": "Not Connected",
+    "%lld%%": "%lld%%",
+    "Ollama 未运行；启动后即可下载或使用这个模型。":
+        "Ollama is not running. Start it to download or use this model.",
+    "Ollama 当前未运行；实际使用这个模型时会自动启动。":
+        "Ollama is not running. It will start automatically when this model is used.",
+    "Ollama 已安装": "Ollama Installed",
+    "尚未安装 Ollama": "Ollama is not installed",
+    "安装 Ollama": "Install Ollama",
+    "正在下载并安装 Ollama…": "Downloading and installing Ollama…",
+    "安装 Ollama？": "Install Ollama?",
+    "下载并安装": "Download && Install",
+    "OpenVoice 将下载并验证 Ollama 官方版本，然后安装到“应用程序”文件夹。只有当前账户没有写入权限时，macOS 才会要求管理员授权。":
+        "OpenVoice will download and verify the official Ollama release, then install it in Applications. macOS will request administrator authorization only if the current account cannot write there.",
+    "下载的 Ollama 无法通过签名验证，安装已停止。":
+        "The downloaded Ollama failed signature verification. Installation was stopped.",
+    "已取消安装 Ollama。": "Ollama installation was cancelled.",
+    "Ollama 安装失败，请重试。": "Ollama installation failed. Try again.",
+    "Ollama 尚未安装。": "Ollama is not installed.",
+    "Ollama 无法启动，请打开 Ollama 后重试。":
+        "Ollama could not start. Open Ollama and try again.",
+    "Ollama 模型下载请求失败（%lld）。": "Ollama model download request failed (%lld).",
+    "Ollama 模型下载失败：%@": "Ollama model download failed: %@",
+    "Ollama 下载意外中断，请重试。": "The Ollama download ended unexpectedly. Try again.",
     "修改": "Change",
     "语音识别模型": "Transcription Model",
     "语言模型": "Language Model",
@@ -230,8 +259,8 @@ PAIRS = {
         "Put your cursor anywhere, press Fn, speak, then press Fn again —\nthe text appears right there.",
     "无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。":
         "No account, no server. Your OpenAI API key stays in the local Keychain;\naudio goes straight from this Mac to OpenAI.",
-    "无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。":
-        "No account and no intermediary server. Your API key stays in the local Keychain;\naudio goes straight from this Mac to the selected provider.",
+    "无账号、无中间服务器。云端 API Key 只保存在本机钥匙串；\n选择本地模型时，音频不会离开这台 Mac。":
+        "No account and no intermediary server. Cloud API keys stay in the local Keychain;\nwhen you choose a local model, audio never leaves this Mac.",
     "设置 OpenAI API Key": "Set Up Your OpenAI API Key",
     "API Key": "API Key",
     "获取 API Key": "Get an API Key",
@@ -245,6 +274,13 @@ PAIRS = {
         "Offers dedicated speech recognition models and GPT language models for accurate, reliable transcription.",
     "使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。":
         "Uses Gemini multimodal models for transcription and post-processing, balancing cost, speed, and multilingual support.",
+    "通过本机 Ollama 运行模型，无需 API Key。请先在 Ollama 中下载所选模型。":
+        "Runs models through Ollama on this Mac with no API key. Download the selected model in Ollama first.",
+    "本地运行": "Runs locally",
+    "无法连接 Ollama。请确认 Ollama 已安装并正在运行。":
+        "Could not connect to Ollama. Make sure Ollama is installed and running.",
+    "Ollama 请求失败（%lld）：%@": "Ollama request failed (%lld): %@",
+    "Ollama 返回了无法解析的结果。": "Ollama returned a response that could not be parsed.",
     "已从钥匙串读取到保存的 API Key": "Loaded your saved API key from the Keychain",
     "已读取 %@ API Key": "Loaded the %@ API key",
     "无法保存 API Key，请重试。": "Could not save the API key. Try again.",

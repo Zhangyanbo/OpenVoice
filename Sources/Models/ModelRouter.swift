@@ -1,7 +1,7 @@
 import Foundation
 
-/// 按用户排序依次尝试模型。每个模型都显式引用服务商实例，
-/// 因此未来加入 Gemini 等服务商时，回退链本身不需改变。
+/// 按用户排序依次尝试模型。每个模型都显式引用模型来源实例，
+/// 因此加入新的云端或本地来源时，回退链本身不需改变。
 enum ModelRouter {
     enum RouterError: LocalizedError {
         case noModels(ModelCapability)
@@ -30,8 +30,9 @@ enum ModelRouter {
 
     static func hasCredential(for models: [ConfiguredModel], providers: [ModelProvider]) -> Bool {
         models.contains { model in
-            providers.contains(where: { $0.id == model.providerID })
-                && KeychainStore.loadAPIKey(providerID: model.providerID) != nil
+            guard let provider = providers.first(where: { $0.id == model.providerID }) else { return false }
+            return !provider.kind.requiresAPIKey
+                || KeychainStore.loadAPIKey(providerID: model.providerID) != nil
         }
     }
 
@@ -66,17 +67,18 @@ enum ModelRouter {
         operation: (any ModelProviderClient, ConfiguredModel) async throws -> String
     ) async throws -> ModelExecutionResult {
         guard !models.isEmpty else { throw RouterError.noModels(capability) }
-        var lastReason = tr("没有可用的服务商或 API Key。")
+        var lastReason = tr("没有可用的模型来源或 API Key。")
         var attempts: [ModelAttempt] = []
 
         for model in models {
             guard let provider = providers.first(where: { $0.id == model.providerID }) else {
-                lastReason = tr("模型 %@ 引用的服务商不存在。", model.displayName)
-                attempts.append(attempt(model: model, providerName: tr("服务商已移除"),
+                lastReason = tr("模型 %@ 引用的来源不存在。", model.displayName)
+                attempts.append(attempt(model: model, providerName: tr("模型来源已移除"),
                                         capability: capability, succeeded: false, reason: lastReason))
                 continue
             }
-            guard KeychainStore.loadAPIKey(providerID: provider.id) != nil else {
+            guard !provider.kind.requiresAPIKey
+                    || KeychainStore.loadAPIKey(providerID: provider.id) != nil else {
                 lastReason = tr("%@ 尚未设置 API Key。", provider.name)
                 attempts.append(attempt(model: model, providerName: provider.name,
                                         capability: capability, succeeded: false, reason: lastReason))
@@ -116,15 +118,19 @@ enum ModelRouter {
     }
 
     private static func makeClient(for provider: ModelProvider) throws -> any ModelProviderClient {
-        guard let key = KeychainStore.loadAPIKey(providerID: provider.id) else {
-            switch provider.kind {
-            case .openAI: throw OpenAIClient.ClientError.noAPIKey
-            case .google: throw GeminiClient.ClientError.noAPIKey
-            }
-        }
         switch provider.kind {
-        case .openAI: return OpenAIClient(apiKey: key)
-        case .google: return GeminiClient(apiKey: key)
+        case .openAI:
+            guard let key = KeychainStore.loadAPIKey(providerID: provider.id) else {
+                throw OpenAIClient.ClientError.noAPIKey
+            }
+            return OpenAIClient(apiKey: key)
+        case .google:
+            guard let key = KeychainStore.loadAPIKey(providerID: provider.id) else {
+                throw GeminiClient.ClientError.noAPIKey
+            }
+            return GeminiClient(apiKey: key)
+        case .ollama:
+            return OllamaClient()
         }
     }
 }

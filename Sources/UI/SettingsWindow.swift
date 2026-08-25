@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import Combine
 import UniformTypeIdentifiers
 
 /// 设置窗口:左侧图标侧边栏 + 右侧卡片式分区。
@@ -494,7 +495,7 @@ private struct PrivacyPane: View {
     var body: some View {
         PaneScroll(title: tr("隐私")) {
             SettingsCard(title: tr("上下文"),
-                         footer: tr("开启后，对应内容会随每次语音请求发送给当前模型的服务商，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。")) {
+                         footer: tr("开启后，对应内容会随每次语音请求交给当前模型，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。")) {
                 SettingsRow(title: tr("使用当前 App 上下文"), subtitle: tr("App 名称与窗口标题")) {
                     Toggle("", isOn: $settings.useAppContext)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
@@ -615,16 +616,18 @@ private struct LanguageCard: View {
 
 private struct ModelsPane: View {
     @ObservedObject var settings = SettingsStore.shared
+    @ObservedObject private var ollama = OllamaModelManager.shared
     @State private var addingProvider = false
     @State private var editingProvider: ModelProvider?
     @State private var addingModel: ModelCapability?
     @State private var pendingProviderRemoval: ModelProvider?
     @State private var pendingModelRemoval: PendingModelRemoval?
+    private let ollamaRefreshTimer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     var body: some View {
         PaneScroll(title: tr("模型")) {
-            SettingsCard(title: tr("服务商"),
-                         footer: tr("API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。")) {
+            SettingsCard(title: tr("模型来源"),
+                         footer: tr("云端 API Key 只保存在 macOS 钥匙串中；本地来源无需密钥。添加来源时无需选择模型。")) {
                 ForEach(Array(settings.modelProviders.enumerated()), id: \.element.id) { index, provider in
                     if index > 0 { CardDivider() }
                     HStack(spacing: 10) {
@@ -633,11 +636,15 @@ private struct ModelsPane: View {
                             .font(.system(size: 13))
                         Spacer(minLength: 12)
                         HStack(spacing: 9) {
-                            Text(KeychainStore.loadAPIKey(providerID: provider.id) == nil ? tr("未设置") : "•••••••••••")
+                            Text(provider.kind.requiresAPIKey
+                                 ? (KeychainStore.loadAPIKey(providerID: provider.id) == nil ? tr("未设置") : "•••••••••••")
+                                 : tr("无需 API Key"))
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(.secondary)
-                            Button(tr("修改")) { editingProvider = provider }
-                                .controlSize(.small)
+                            if provider.kind.requiresAPIKey {
+                                Button(tr("修改")) { editingProvider = provider }
+                                    .controlSize(.small)
+                            }
                             Button {
                                 pendingProviderRemoval = provider
                             } label: {
@@ -645,7 +652,7 @@ private struct ModelsPane: View {
                             }
                             .buttonStyle(.plain)
                             .disabled(settings.modelProviders.count <= 1)
-                            .help(tr("移除服务商"))
+                            .help(tr("移除模型来源"))
                         }
                     }
                     .padding(.horizontal, 12)
@@ -655,7 +662,7 @@ private struct ModelsPane: View {
                 Button {
                     addingProvider = true
                 } label: {
-                    Label(tr("添加服务商"), systemImage: "plus")
+                    Label(tr("添加模型来源"), systemImage: "plus")
                         .font(.system(size: 12))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.horizontal, 12).padding(.vertical, 9)
@@ -680,7 +687,7 @@ private struct ModelsPane: View {
         }
         .sheet(item: $editingProvider) { provider in
             ProviderKeySheet(provider: provider) { _, key in
-                _ = KeychainStore.saveAPIKey(key, providerID: provider.id)
+                if let key { _ = KeychainStore.saveAPIKey(key, providerID: provider.id) }
             }
         }
         .sheet(item: $addingModel) { capability in
@@ -699,18 +706,22 @@ private struct ModelsPane: View {
                 }
             }
         }
-        .confirmationDialog(tr("是否删除服务商？"),
+        .confirmationDialog(tr("是否删除模型来源？"),
                             isPresented: Binding(get: { pendingProviderRemoval != nil },
                                                  set: { if !$0 { pendingProviderRemoval = nil } }),
                             presenting: pendingProviderRemoval) { provider in
-            Button(tr("删除服务商"), role: .destructive) {
+            Button(tr("删除模型来源"), role: .destructive) {
                 settings.removeProvider(provider)
                 pendingProviderRemoval = nil
             }
             Button(tr("取消"), role: .cancel) { pendingProviderRemoval = nil }
         } message: { provider in
-            Text(tr("将删除 %@ 的 API Key，并移除引用该服务商的模型。API Key 删除后无法找回。",
-                    provider.name))
+            if provider.kind.requiresAPIKey {
+                Text(tr("将删除 %@ 的 API Key，并移除引用该来源的模型。API Key 删除后无法找回。",
+                        provider.name))
+            } else {
+                Text(tr("将移除 %@，并删除引用该来源的模型。", provider.name))
+            }
         }
         .confirmationDialog(tr("是否移除模型？"),
                             isPresented: Binding(get: { pendingModelRemoval != nil },
@@ -724,6 +735,8 @@ private struct ModelsPane: View {
         } message: { pending in
             Text(tr("将从回退顺序中移除 %@。", pending.model.displayName))
         }
+        .onAppear { ollama.refresh() }
+        .onReceive(ollamaRefreshTimer) { _ in ollama.refresh() }
     }
 
     @ViewBuilder
@@ -790,6 +803,7 @@ private struct PendingModelRemoval: Identifiable {
 }
 
 private struct ModelPriorityRow: View {
+    @ObservedObject private var ollama = OllamaModelManager.shared
     let index: Int
     let model: ConfiguredModel
     let provider: ModelProvider?
@@ -800,40 +814,95 @@ private struct ModelPriorityRow: View {
     let remove: () -> Void
 
     var body: some View {
-        HStack(spacing: 10) {
-            Text("\(index + 1)")
-                .font(.system(size: 10, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
-                .frame(width: 20, height: 20)
-                .background(Color.secondary.opacity(0.12), in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text(model.displayName).font(.system(size: 13))
-                HStack(spacing: 8) {
-                    Text(provider?.name ?? tr("服务商已移除"))
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 8)
-                    if let pricingSummary {
-                        Text(pricingSummary)
-                            .foregroundStyle(.tertiary)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Text("\(index + 1)")
+                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 20)
+                    .background(Color.secondary.opacity(0.12), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(model.displayName).font(.system(size: 13))
+                    HStack(spacing: 8) {
+                        Text(provider?.name ?? tr("模型来源已移除"))
+                            .foregroundStyle(.secondary)
+                        if let pricingSummary {
+                            Text(pricingSummary)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
+                    .font(.system(size: 11))
                 }
-                .font(.system(size: 11))
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 5) {
-                Button(action: moveUp) { Image(systemName: "chevron.up") }
-                    .disabled(index == 0).help(tr("上移"))
-                Button(action: moveDown) { Image(systemName: "chevron.down") }
-                    .disabled(index + 1 >= count).help(tr("下移"))
-                Button(action: remove) {
-                    Image(systemName: "minus.circle.fill").foregroundStyle(.tertiary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 7) {
+                    if provider?.kind == .ollama { ollamaControl }
+                    Button(action: moveUp) { Image(systemName: "chevron.up") }
+                        .disabled(index == 0).help(tr("上移"))
+                    Button(action: moveDown) { Image(systemName: "chevron.down") }
+                        .disabled(index + 1 >= count).help(tr("下移"))
+                    Button(action: remove) {
+                        Image(systemName: "minus.circle.fill").foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain).disabled(count <= 1).help(tr("移除模型"))
                 }
-                .buttonStyle(.plain).disabled(count <= 1).help(tr("移除模型"))
+                .buttonStyle(.borderless)
+                .controlSize(.small)
             }
-            .buttonStyle(.borderless)
-            .controlSize(.small)
+            if provider?.kind == .ollama { ollamaDetail }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
+    }
+
+    @ViewBuilder private var ollamaControl: some View {
+        switch ollama.state(for: model.modelID) {
+        case .installed:
+            Label(tr("已配置"), systemImage: "checkmark.circle.fill")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.green)
+                .labelStyle(.titleAndIcon)
+        case .missing:
+            Button(tr("下载")) { ollama.download(modelID: model.modelID) }
+                .buttonStyle(.bordered)
+        case .unavailable:
+            Label(tr("未连接"), systemImage: "bolt.horizontal.circle")
+                .font(.system(size: 11, weight: .medium))
+                .foregroundStyle(.secondary)
+        case .failed:
+            Button(tr("重试")) { ollama.download(modelID: model.modelID) }
+                .buttonStyle(.bordered)
+        case .checking:
+            ProgressView().controlSize(.mini)
+        case .downloading:
+            EmptyView()
+        }
+    }
+
+    @ViewBuilder private var ollamaDetail: some View {
+        switch ollama.state(for: model.modelID) {
+        case .downloading(let progress):
+            HStack(spacing: 8) {
+                ProgressView(value: progress)
+                    .progressViewStyle(.linear)
+                Text(tr("%lld%%", Int64((progress * 100).rounded(.down))))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 34, alignment: .trailing)
+            }
+            .padding(.leading, 30)
+        case .failed(let message):
+            Text(message)
+                .font(.system(size: 10.5))
+                .foregroundStyle(.red)
+                .lineLimit(2)
+                .padding(.leading, 30)
+        case .unavailable:
+            Text(tr("Ollama 当前未运行；实际使用这个模型时会自动启动。"))
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .padding(.leading, 30)
+        default:
+            EmptyView()
+        }
     }
 
     private var pricingSummary: String? {
@@ -843,8 +912,9 @@ private struct ModelPriorityRow: View {
 
 private struct ProviderKeySheet: View {
     let provider: ModelProvider?
-    let onSave: (ModelProviderKind, String) -> Void
+    let onSave: (ModelProviderKind, String?) -> Void
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var ollama = OllamaModelManager.shared
     @State private var kind: ModelProviderKind = .openAI
     @State private var key = ""
     @State private var validating = false
@@ -852,11 +922,11 @@ private struct ProviderKeySheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text(provider == nil ? tr("添加服务商") : tr("修改 API Key"))
+            Text(provider == nil ? tr("添加模型来源") : tr("修改 API Key"))
                 .font(.system(size: 18, weight: .semibold))
 
             if provider == nil {
-                HStack(spacing: 12) {
+                HStack(spacing: 10) {
                     ForEach(ModelProviderKind.allCases) { item in
                         providerCard(item)
                     }
@@ -875,23 +945,33 @@ private struct ProviderKeySheet: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 2)
 
-            SecureField(tr("API Key"), text: $key)
-                .textFieldStyle(.roundedBorder)
-            VStack(alignment: .leading, spacing: 4) {
-                Text(kind.apiKeyHelp)
-                    .foregroundStyle(.secondary)
-                Link(tr("获取 API Key"), destination: kind.apiKeyURL)
+            if kind.requiresAPIKey {
+                SecureField(tr("API Key"), text: $key)
+                    .textFieldStyle(.roundedBorder)
+                VStack(alignment: .leading, spacing: 4) {
+                    if let help = kind.apiKeyHelp {
+                        Text(help).foregroundStyle(.secondary)
+                    }
+                    if let url = kind.apiKeyURL {
+                        Link(tr("获取 API Key"), destination: url)
+                    }
+                }
+                .font(.system(size: 11))
+            } else if kind == .ollama {
+                OllamaInstallationView()
             }
-            .font(.system(size: 11))
             if !errorText.isEmpty {
                 Text(errorText).font(.system(size: 11)).foregroundStyle(.red)
             }
             HStack {
                 Spacer()
                 Button(tr("取消")) { dismiss() }
-                Button(tr("保存并验证"), action: validate)
+                Button(kind.requiresAPIKey ? tr("保存并验证") : tr("添加"), action: validate)
                     .buttonStyle(.borderedProminent)
-                    .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validating)
+                    .disabled((kind.requiresAPIKey
+                               && key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                              || (kind == .ollama && !ollama.ollamaInstalled)
+                              || validating)
                 if validating { ProgressView().controlSize(.small) }
             }
         }
@@ -934,6 +1014,11 @@ private struct ProviderKeySheet: View {
 
     private func validate() {
         let candidate = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard kind.requiresAPIKey else {
+            onSave(kind, nil)
+            dismiss()
+            return
+        }
         validating = true
         errorText = ""
         Task {
@@ -941,6 +1026,7 @@ private struct ProviderKeySheet: View {
                 switch kind {
                 case .openAI: try await OpenAIClient(apiKey: candidate).validateKey()
                 case .google: try await GeminiClient(apiKey: candidate).validateKey()
+                case .ollama: break
                 }
                 await MainActor.run {
                     onSave(kind, candidate)
@@ -971,7 +1057,7 @@ private struct AddModelSheet: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text(tr("添加模型")).font(.system(size: 18, weight: .semibold))
-            Picker(tr("服务商"), selection: $providerID) {
+            Picker(tr("模型来源"), selection: $providerID) {
                 ForEach(providers) { provider in Text(provider.name).tag(provider.id) }
             }
             Picker(tr("模型"), selection: $modelID) {

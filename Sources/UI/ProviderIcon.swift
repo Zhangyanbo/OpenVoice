@@ -1,20 +1,28 @@
 import SwiftUI
 
-/// 服务商品牌标志保持官方比例；OpenAI 以深色模板置于白底，
-/// Google 保留官方彩色标志。
+/// 模型来源标志保持官方比例并统一置于白底圆形中。
 /// OpenAI: https://developers.openai.com/favicon.svg
 /// Google: https://developers.google.com/static/identity/images/g-logo.png
+/// Ollama: https://github.com/ollama/ollama/blob/main/docs/ollama-logo.svg
 struct ProviderIcon: View {
     let kind: ModelProviderKind
     var size: CGFloat = 26
 
     var body: some View {
         brandImage
-            .padding(kind == .google ? size * 0.19 : 0)
+            .padding(iconPadding)
             .background(Color.white, in: Circle())
             .overlay(Circle().strokeBorder(Color.black.opacity(0.10), lineWidth: 0.5))
         .frame(width: size, height: size)
         .accessibilityHidden(true)
+    }
+
+    private var iconPadding: CGFloat {
+        switch kind {
+        case .openAI: return 0
+        case .google: return size * 0.19
+        case .ollama: return size * 0.20
+        }
     }
 
     @ViewBuilder private var brandImage: some View {
@@ -32,6 +40,13 @@ struct ProviderIcon: View {
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
+        case .ollama:
+            Image("ProviderOllama")
+                .renderingMode(.template)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.14))
         }
     }
 }

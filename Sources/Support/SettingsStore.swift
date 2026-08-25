@@ -192,7 +192,7 @@ final class SettingsStore: ObservableObject {
     /// 开启后在历史页显示最近一次请求详情
     @Published var debugMode: Bool { didSet { defaults.set(debugMode, forKey: "debugMode") } }
 
-    // MARK: - 服务商与模型回退链
+    // MARK: - 模型来源与模型回退链
     @Published var modelProviders: [ModelProvider] {
         didSet { saveCodable(modelProviders, forKey: "modelProviders") }
     }
@@ -243,7 +243,11 @@ final class SettingsStore: ObservableObject {
         onboardingDone = defaults.object(forKey: "onboardingDone") as? Bool ?? false
     }
 
-    func addProvider(kind: ModelProviderKind, apiKey: String) -> ModelProvider {
+    func addProvider(kind: ModelProviderKind, apiKey: String? = nil) -> ModelProvider {
+        // 本机只有一个 Ollama 服务，不允许创建无意义的重复实例。
+        if kind == .ollama, let existing = modelProviders.first(where: { $0.kind == .ollama }) {
+            return existing
+        }
         let ordinal = modelProviders.filter { $0.kind == kind }.count + 1
         let provider = ModelProvider(
             id: UUID().uuidString,
@@ -251,15 +255,21 @@ final class SettingsStore: ObservableObject {
             name: ordinal == 1 ? kind.displayName : "\(kind.displayName) \(ordinal)"
         )
         modelProviders.append(provider)
-        _ = KeychainStore.saveAPIKey(apiKey, providerID: provider.id)
+        if kind.requiresAPIKey, let apiKey {
+            _ = KeychainStore.saveAPIKey(apiKey, providerID: provider.id)
+        }
         return provider
     }
 
-    /// 欢迎引导只收集服务商与密钥；首启时由服务商自动提供默认模型链。
+    func isProviderConfigured(_ provider: ModelProvider) -> Bool {
+        !provider.kind.requiresAPIKey || KeychainStore.loadAPIKey(providerID: provider.id) != nil
+    }
+
+    /// 欢迎引导只收集模型来源与必要的密钥；首启时由来源自动提供默认模型链。
     /// 已完成引导的用户重新打开单页配置时，不覆盖他们现有的模型排序。
-    func configureOnboardingProvider(kind: ModelProviderKind, apiKey: String) -> Bool {
+    func configureOnboardingProvider(kind: ModelProviderKind, apiKey: String? = nil) -> Bool {
         let configuredProviderIDs = Set(modelProviders.compactMap { provider in
-            KeychainStore.loadAPIKey(providerID: provider.id) == nil ? nil : provider.id
+            isProviderConfigured(provider) ? provider.id : nil
         })
         let existing = modelProviders.first(where: { $0.kind == kind })
         let provider: ModelProvider
@@ -268,14 +278,16 @@ final class SettingsStore: ObservableObject {
         } else {
             provider = ModelProvider(id: UUID().uuidString, kind: kind, name: kind.displayName)
         }
-        guard KeychainStore.saveAPIKey(apiKey, providerID: provider.id) else { return false }
+        if kind.requiresAPIKey {
+            guard let apiKey, KeychainStore.saveAPIKey(apiKey, providerID: provider.id) else { return false }
+        }
         if existing == nil { modelProviders.append(provider) }
 
         if !onboardingDone {
-            // 初始的 OpenAI 服务商只是迁移占位；若用户先选 Google，去掉没有
+            // 初始的 OpenAI 来源只是迁移占位；若用户先选其他来源，去掉没有
             // Key 的占位项。之后继续添加另一家时保留第一家的优先顺序。
             modelProviders = modelProviders.filter {
-                $0.id == provider.id || KeychainStore.loadAPIKey(providerID: $0.id) != nil
+                $0.id == provider.id || isProviderConfigured($0)
             }
             if configuredProviderIDs.isEmpty {
                 transcriptionModels = Self.configuredDefaults(
@@ -288,7 +300,7 @@ final class SettingsStore: ObservableObject {
                 appendDefaultModelsIfNeeded(kind: kind, providerID: provider.id)
             }
         } else {
-            // 单页引导也可用于给已完成首启的用户补一个新服务商。
+            // 单页引导也可用于给已完成首启的用户补一个新来源。
             appendDefaultModelsIfNeeded(kind: kind, providerID: provider.id)
         }
         return true
@@ -315,7 +327,7 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    /// 删除服务商时同时删除引用它的模型，避免留下失效引用。
+    /// 删除模型来源时同时删除引用它的模型，避免留下失效引用。
     func removeProvider(_ provider: ModelProvider) {
         guard modelProviders.count > 1 else { return }
         modelProviders.removeAll { $0.id == provider.id }
