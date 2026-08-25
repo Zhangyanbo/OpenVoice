@@ -2,7 +2,7 @@ import Foundation
 
 /// OpenAI API 客户端:语音转录 + 文本整理/翻译 + Key 验证。
 /// 音频与最小上下文直接从本机发给 OpenAI,不经过任何中间服务器。
-struct OpenAIClient {
+struct OpenAIClient: ModelProviderClient {
     enum ClientError: LocalizedError {
         case noAPIKey
         case invalidKey
@@ -26,11 +26,6 @@ struct OpenAIClient {
         config.timeoutIntervalForRequest = 60
         return URLSession(configuration: config)
     }()
-
-    static func fromKeychain() throws -> OpenAIClient {
-        guard let key = KeychainStore.loadAPIKey() else { throw ClientError.noAPIKey }
-        return OpenAIClient(apiKey: key)
-    }
 
     // MARK: - Key 验证
 

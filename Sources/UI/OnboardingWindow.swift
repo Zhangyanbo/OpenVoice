@@ -4,10 +4,10 @@ import SwiftUI
 /// 引导步骤。除了首启完整流程,单个步骤也可作为"权限/配置缺失"时的
 /// 引导页独立弹出(用户在使用中缺什么就看到什么,而不是干巴巴的警告框)
 enum OnboardingStep: Int, CaseIterable {
-    case welcome, apiKey, microphone, accessibility, tryIt
+    case welcome, provider, microphone, accessibility, tryIt
 }
 
-/// 首次启动引导(spec §16):欢迎 → API Key → 麦克风 → 辅助功能 → 试一下。
+/// 首次启动引导(spec §16):欢迎 → 服务商 → 麦克风 → 辅助功能 → 试一下。
 /// 无账号、无注册,完成后不再出现。
 final class OnboardingWindowController {
     static let shared = OnboardingWindowController()
@@ -63,9 +63,8 @@ private struct OnboardingView: View {
     typealias Step = OnboardingStep
 
     @State private var step: Step
-    /// 钥匙串中已有可用的 Key(读取动作本身会在需要时触发系统确认框)
-    @State private var keySaved = false
-    @State private var replacingKey = false
+    @State private var configuredProviderKinds = Set<ModelProviderKind>()
+    @State private var editingProviderKind: ModelProviderKind?
 
     init(initialStep: OnboardingStep, standalone: Bool,
          onAccessibilityGranted: @escaping () -> Void, onFinish: @escaping () -> Void) {
@@ -75,9 +74,6 @@ private struct OnboardingView: View {
         self.onFinish = onFinish
         _step = State(initialValue: initialStep)
     }
-    @State private var keyInput = ""
-    @State private var keyStatus = ""
-    @State private var validating = false
     @State private var micGranted = Permissions.microphoneGranted
     @State private var axGranted = Permissions.accessibilityGranted
     @State private var tryText = ""
@@ -99,6 +95,11 @@ private struct OnboardingView: View {
             if ax && !axGranted { onAccessibilityGranted() }
             axGranted = ax
         }
+        .sheet(item: $editingProviderKind) { kind in
+            OnboardingProviderKeySheet(kind: kind) {
+                refreshConfiguredProviders()
+            }
+        }
     }
 
     @ViewBuilder private var content: some View {
@@ -111,46 +112,48 @@ private struct OnboardingView: View {
                 Text(tr("把光标放到任意地方，按 Fn 说话，再按 Fn，\n文字直接出现。"))
                     .font(.system(size: 13))
                     .multilineTextAlignment(.center)
-                Text(tr("无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。"))
+                Text(tr("无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。"))
                     .font(.system(size: 11.5))
                     .multilineTextAlignment(.center)
                     .foregroundStyle(.secondary)
             }
             .frame(maxWidth: .infinity)
 
-        case .apiKey:
+        case .provider:
             VStack(alignment: .leading, spacing: 12) {
-                Text(tr("设置 OpenAI API Key")).font(.title2.bold())
-                Text(tr("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。"))
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                if keySaved && !replacingKey {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                        Text(tr("已从钥匙串读取到保存的 API Key"))
-                        Spacer()
-                        Button(tr("更换…")) { replacingKey = true }
-                    }
-                    .padding(12)
-                    .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
-                } else {
-                    SecureField("sk-…", text: $keyInput)
-                        .textFieldStyle(.roundedBorder)
-                    HStack {
-                        Button(validating ? tr("正在验证…") : tr("验证并保存")) { validate() }
-                            .disabled(keyInput.isEmpty || validating)
-                        if !keyStatus.isEmpty {
-                            Text(keyStatus).font(.caption).foregroundStyle(.secondary)
+                Text(tr("添加服务商")).font(.title2.bold())
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
+                    ForEach(ModelProviderKind.allCases) { kind in
+                        let configured = configuredProviderKinds.contains(kind)
+                        Button {
+                            if !configured { editingProviderKind = kind }
+                        } label: {
+                            HStack(spacing: 10) {
+                                ProviderIcon(kind: kind, size: 30)
+                                Text(configured ? kind.displayName : tr("添加 %@", kind.displayName))
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.primary)
+                                Spacer(minLength: 0)
+                                Image(systemName: configured ? "checkmark.circle.fill" : "plus.circle.fill")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(configured ? Color.green : Color.accentColor)
+                            }
+                            .padding(.horizontal, 14)
+                            .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
+                            .background(Color(nsColor: .controlBackgroundColor),
+                                        in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
+                                .strokeBorder(configured ? Color.green.opacity(0.30) : Color.primary.opacity(0.08),
+                                              lineWidth: 1))
                         }
+                        .buttonStyle(.plain)
+                        // 已添加的卡片不响应点击，但不用 disabled，
+                        // 避免系统把绿色完成状态整体变灰。
+                        .allowsHitTesting(!configured)
                     }
                 }
-                Text(tr("如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。"))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
-            // 主动读取一次钥匙串:若需要系统确认,就让确认框弹在
-            // 这个有上下文说明的页面里,而不是使用中突然出现
-            .onAppear { keySaved = KeychainStore.loadAPIKey() != nil }
+            .onAppear { refreshConfiguredProviders() }
 
         case .microphone:
             permissionStep(title: tr("授予麦克风权限"),
@@ -245,32 +248,85 @@ private struct OnboardingView: View {
     private var canContinue: Bool {
         switch step {
         case .welcome: return true
-        case .apiKey: return keySaved
+        case .provider: return !configuredProviderKinds.isEmpty
         case .microphone: return micGranted
         case .accessibility: return axGranted
         case .tryIt: return true
         }
     }
 
+    private func refreshConfiguredProviders() {
+        configuredProviderKinds = Set(settings.modelProviders.compactMap { provider in
+            KeychainStore.loadAPIKey(providerID: provider.id) == nil ? nil : provider.kind
+        })
+    }
+}
+
+private struct OnboardingProviderKeySheet: View {
+    let kind: ModelProviderKind
+    let onAdded: () -> Void
+    @ObservedObject private var settings = SettingsStore.shared
+    @Environment(\.dismiss) private var dismiss
+    @State private var keyInput = ""
+    @State private var status = ""
+    @State private var validating = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 10) {
+                ProviderIcon(kind: kind, size: 30)
+                Text(tr("添加 %@", kind.displayName))
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            SecureField(tr("API Key"), text: $keyInput)
+                .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(kind.apiKeyHelp)
+                    .foregroundStyle(.secondary)
+                Link(tr("获取 API Key"), destination: kind.apiKeyURL)
+            }
+            .font(.system(size: 11))
+            if !status.isEmpty {
+                Text(status)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button(tr("取消")) { dismiss() }
+                Button(validating ? tr("正在验证…") : tr("验证并添加"), action: validate)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(keyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validating)
+            }
+        }
+        .padding(22)
+        .frame(width: 380)
+    }
+
     private func validate() {
         let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         validating = true
-        keyStatus = ""
+        status = ""
         Task {
             do {
-                try await OpenAIClient(apiKey: key).validateKey()
-                _ = KeychainStore.saveAPIKey(key)
+                switch kind {
+                case .openAI: try await OpenAIClient(apiKey: key).validateKey()
+                case .google: try await GeminiClient(apiKey: key).validateKey()
+                }
                 await MainActor.run {
+                    guard settings.configureOnboardingProvider(kind: kind, apiKey: key) else {
+                        validating = false
+                        status = tr("无法保存 API Key，请重试。")
+                        return
+                    }
                     validating = false
-                    keyStatus = tr("✓ 已保存")
-                    keySaved = true
-                    replacingKey = false
-                    keyInput = ""
+                    onAdded()
+                    dismiss()
                 }
             } catch {
                 await MainActor.run {
                     validating = false
-                    keyStatus = tr("OpenAI 无法验证这个 API Key。")
+                    status = tr("%@ 无法验证这个 API Key。", kind.displayName)
                 }
             }
         }

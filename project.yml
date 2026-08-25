@@ -21,14 +21,22 @@ targets:
           # 每次构建都从设计稿重新生成 .icns(设计稿可能随时被编辑)
           SRC="$SRCROOT/icon/icon_design.png"
           if [ -f "$SRC" ]; then
-            ICONSET="$TEMP_DIR/AppIcon.iconset"
-            rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+            CATALOG="$TEMP_DIR/OpenVoiceAssets.xcassets"
+            ICONSET="$CATALOG/AppIcon.appiconset"
+            COMPILED="$TEMP_DIR/OpenVoiceAssetsCompiled"
+            rm -rf "$CATALOG" "$COMPILED"
+            mkdir -p "$ICONSET" "$COMPILED"
+            cp "$SRCROOT/scripts/asset_catalog_contents.json" "$CATALOG/Contents.json"
+            cp "$SRCROOT/scripts/app_icon_contents.json" "$ICONSET/Contents.json"
             for s in 16 32 128 256 512; do
               sips -z $s $s "$SRC" --out "$ICONSET/icon_${s}x${s}.png" >/dev/null
               d=$((s*2))
               sips -z $d $d "$SRC" --out "$ICONSET/icon_${s}x${s}@2x.png" >/dev/null
             done
-            iconutil -c icns "$ICONSET" -o "$APP_RES/AppIcon.icns"
+            xcrun actool "$CATALOG" --compile "$COMPILED" --platform macosx \
+              --minimum-deployment-target "$MACOSX_DEPLOYMENT_TARGET" --app-icon AppIcon \
+              --output-partial-info-plist "$TEMP_DIR/AppIconInfo.plist" >/dev/null
+            cp "$COMPILED/AppIcon.icns" "$APP_RES/AppIcon.icns"
           fi
           # 界面内使用的透明底图标 + 菜单栏模板图标,存在才拷贝
           for f in icon_design_white icon_design_black icon_design_bar; do
@@ -41,7 +49,7 @@ targets:
       properties:
         CFBundleDisplayName: OpenVoice
         CFBundleIconFile: AppIcon
-        CFBundleShortVersionString: "0.3.8"
+        CFBundleShortVersionString: "0.3.11"
         CFBundleVersion: "1"
         LSUIElement: true
         NSMicrophoneUsageDescription: "语音输入需要使用麦克风录制你的声音。录音结束后立即停止访问。"
