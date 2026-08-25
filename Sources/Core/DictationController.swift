@@ -152,8 +152,13 @@ final class DictationController {
     /// 前置条件缺什么就弹出引导里对应的单页(带说明与授权按钮),
     /// 而不是突兀的系统警告框 —— 用户能看懂为什么需要、点一下就能开
     private func start(mode: Mode) {
-        guard KeychainStore.loadAPIKey() != nil else {
-            OnboardingWindowController.shared.show(step: .apiKey)
+        guard ModelRouter.hasCredential(for: settings.transcriptionModels,
+                                        providers: settings.modelProviders) else {
+            if settings.onboardingDone {
+                SettingsWindowController.shared.show(tab: .models)
+            } else {
+                OnboardingWindowController.shared.show(step: .apiKey)
+            }
             return
         }
         guard Permissions.accessibilityGranted else {
@@ -262,8 +267,10 @@ final class DictationController {
     private func process(wav: Data, mode: Mode, context: DictationContext, target: InsertionTarget?) {
         let termHint = glossary.promptHint()
         let recognitionLanguage = settings.recognitionLanguage
-        let transcribeModel = settings.effectiveTranscribeModel
-        let llmModel = settings.effectiveLLMModel
+        // 请求开始时固定当前回退链，避免用户在请求期间改排序导致行为跳变。
+        let providers = settings.modelProviders
+        let transcriptionModels = settings.transcriptionModels
+        let languageModels = settings.languageModels
 
         // 请求详情只在 Debug 开启时记录,关闭后不保留任何请求痕迹
         let debug = settings.debugMode
@@ -276,12 +283,17 @@ final class DictationController {
 
         // controller 与应用同生命周期,请求期间强持有以保证结果送达
         Task {
+            var modelAttempts: [ModelAttempt] = []
+            var detailMessage: String?
             do {
-                let client = try OpenAIClient.fromKeychain()
-                let raw = try await client.transcribe(wav: wav,
-                                                      model: transcribeModel,
-                                                      prompt: termHint.isEmpty ? nil : termHint,
-                                                      language: recognitionLanguage)
+                let transcription = try await ModelRouter.transcribe(
+                    wav: wav,
+                    models: transcriptionModels,
+                    providers: providers,
+                    prompt: termHint.isEmpty ? nil : termHint,
+                    language: recognitionLanguage)
+                modelAttempts.append(contentsOf: transcription.attempts)
+                let raw = transcription.text
                 guard !raw.isEmpty else {
                     await MainActor.run { self.finishEmpty() }
                     return
@@ -299,33 +311,51 @@ final class DictationController {
                 // 轻量语言模型整理
                 var final = raw
                 do {
-                    final = try await client.chat(model: llmModel, system: system, user: user, transcript: raw)
+                    let processing = try await ModelRouter.chat(
+                        models: languageModels,
+                        providers: providers,
+                        system: system,
+                        user: user,
+                        transcript: raw)
+                    modelAttempts.append(contentsOf: processing.attempts)
+                    final = processing.text
                     if debug { LastRequestLog.shared.response = final }
                     if final.isEmpty { final = raw }
                 } catch {
+                    modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
                     // 只有普通听写且无选中文字时才可安全降级为原始转录;
                     // 翻译模式降级会插入未翻译文本,选中文字指令模式降级会用指令原文
                     // 覆盖用户选中的内容 —— 这两种情况一律走失败+重试(spec §19)
                     var canFallbackToRaw = false
                     if case .dictation = mode, context.selectedText == nil { canFallbackToRaw = true }
                     guard canFallbackToRaw else {
+                        let attemptsSnapshot = modelAttempts
                         await MainActor.run {
                             self.transcriptionFailed(wav: wav, mode: mode, context: context,
-                                                     target: target, error: error)
+                                                     target: target, error: error,
+                                                     modelAttempts: attemptsSnapshot)
                         }
                         return
                     }
+                    let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    detailMessage = tr("后处理失败，已保留原始转录：%@", reason)
                     NSLog("整理模型失败，使用原始转录：\(error.localizedDescription)")
                 }
 
                 let text = final
+                let attemptsSnapshot = modelAttempts
+                let detailSnapshot = detailMessage
                 await MainActor.run {
-                    self.insert(text: text, target: target, mode: mode, context: context, wav: wav)
+                    self.insert(text: text, target: target, mode: mode, context: context, wav: wav,
+                                modelAttempts: attemptsSnapshot, detailMessage: detailSnapshot)
                 }
             } catch {
+                modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
+                let attemptsSnapshot = modelAttempts
                 await MainActor.run {
                     self.transcriptionFailed(wav: wav, mode: mode, context: context,
-                                             target: target, error: error)
+                                             target: target, error: error,
+                                             modelAttempts: attemptsSnapshot)
                 }
             }
         }
@@ -362,7 +392,8 @@ final class DictationController {
     }
 
     private func insert(text: String, target: InsertionTarget?, mode: Mode,
-                        context: DictationContext, wav: Data) {
+                        context: DictationContext, wav: Data,
+                        modelAttempts: [ModelAttempt], detailMessage: String?) {
         state = .idle
         if settings.keepHistory {
             let modeLabel: String
@@ -371,7 +402,8 @@ final class DictationController {
             case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
             }
             HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName,
-                                    failed: false, wav: wav, retry: retryInfo(for: mode, context: context))
+                                    failed: false, wav: wav, retry: retryInfo(for: mode, context: context),
+                                    modelAttempts: modelAttempts, detailMessage: detailMessage)
         }
         // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
         panel.hide()
@@ -393,7 +425,8 @@ final class DictationController {
     }
 
     private func transcriptionFailed(wav: Data, mode: Mode, context: DictationContext,
-                                     target: InsertionTarget?, error: Error) {
+                                     target: InsertionTarget?, error: Error,
+                                     modelAttempts: [ModelAttempt]) {
         state = .idle
         failedAttempt = FailedAttempt(wav: wav, mode: mode, context: context, target: target)
         let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -408,7 +441,8 @@ final class DictationController {
             case .translation(let language): modeLabel = tr("翻译 → %@", L10n.languageName(language))
             }
             HistoryStore.shared.add(text: "", mode: modeLabel, appName: context.appName,
-                                    failed: true, wav: wav, retry: retryInfo(for: mode, context: context))
+                                    failed: true, wav: wav, retry: retryInfo(for: mode, context: context),
+                                    modelAttempts: modelAttempts, detailMessage: reason)
         }
         panel.showError(tr("转录失败：%@", reason))
     }
@@ -419,7 +453,7 @@ final class DictationController {
     /// 成功 → 原地更新正文;任何失败 → 条目保持原样(旧内容绝不丢失)。
     func retranscribe(_ request: RetranscribeRequest) {
         let store = HistoryStore.shared
-        func finishWithFailure(_ error: Error?) {
+        func finishWithFailure(_ error: Error?, attempts: [ModelAttempt] = []) {
             DispatchQueue.main.async {
                 self.state = .idle
                 store.setRetranscribing(nil)
@@ -428,14 +462,19 @@ final class DictationController {
                     NSLog("重新转录失败：\(reason)")
                     LastRequestLog.shared.lastError = reason
                     LastRequestLog.shared.lastErrorAt = Date()
+                    store.updateEntry(request.entryID) { entry in
+                        entry.modelAttempts = attempts
+                        entry.detailMessage = tr("重新转录失败：%@", reason)
+                    }
                 }
             }
         }
 
         guard case .idle = state else { finishWithFailure(nil); return }
-        guard KeychainStore.loadAPIKey() != nil else {
+        guard ModelRouter.hasCredential(for: settings.transcriptionModels,
+                                        providers: settings.modelProviders) else {
             store.setRetranscribing(nil)
-            OnboardingWindowController.shared.show(step: .apiKey)
+            SettingsWindowController.shared.show(tab: .models)
             return
         }
         let mode: Mode
@@ -452,48 +491,84 @@ final class DictationController {
             context = AXContextReader.capture(settings: settings).0
         }
         state = .transcribing
+        let providers = settings.modelProviders
+        let transcriptionModels = settings.transcriptionModels
+        let languageModels = settings.languageModels
 
         Task {
+            var modelAttempts: [ModelAttempt] = []
+            var detailMessage: String?
             // 转录+整理;返回空串表示转录结果为空。失败时抛错。
             func run() async throws -> String {
                 let termHint = glossary.promptHint()
-                let client = try OpenAIClient.fromKeychain()
-                let raw = try await client.transcribe(
-                    wav: request.wav,
-                    model: settings.effectiveTranscribeModel,
-                    prompt: termHint.isEmpty ? nil : termHint,
-                    language: settings.recognitionLanguage)
+                let raw: String
+                do {
+                    let transcription = try await ModelRouter.transcribe(
+                        wav: request.wav,
+                        models: transcriptionModels,
+                        providers: providers,
+                        prompt: termHint.isEmpty ? nil : termHint,
+                        language: settings.recognitionLanguage)
+                    modelAttempts.append(contentsOf: transcription.attempts)
+                    raw = transcription.text
+                } catch {
+                    modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
+                    throw error
+                }
                 guard !raw.isEmpty else { return "" }
                 let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
                                                effort: settings.editingEffort,
                                                format: settings.formatLevel)
                 let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
                 do {
-                    let polished = try await client.chat(model: settings.effectiveLLMModel,
-                                                         system: system, user: user, transcript: raw)
+                    let processing = try await ModelRouter.chat(
+                        models: languageModels,
+                        providers: providers,
+                        system: system,
+                        user: user,
+                        transcript: raw)
+                    modelAttempts.append(contentsOf: processing.attempts)
+                    let polished = processing.text
                     return polished.isEmpty ? raw : polished
                 } catch {
+                    modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
                     // 与主流程一致:仅普通听写可安全回落到原始转录,翻译模式一律失败
-                    if case .dictation = mode { return raw } else { throw error }
+                    if case .dictation = mode, context.selectedText == nil {
+                        let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                        detailMessage = tr("后处理失败，已保留原始转录：%@", reason)
+                        return raw
+                    } else {
+                        throw error
+                    }
                 }
             }
 
             do {
                 let text = try await run()
+                let attemptsSnapshot = modelAttempts
+                let detailSnapshot = detailMessage
                 await MainActor.run {
                     self.state = .idle
                     store.setRetranscribing(nil)
-                    guard !text.isEmpty else { return } // 转录为空:条目保持原样
+                    guard !text.isEmpty else {
+                        store.updateEntry(request.entryID) { entry in
+                            entry.modelAttempts = attemptsSnapshot
+                            entry.detailMessage = tr("转录结果为空，原记录未改动。")
+                        }
+                        return
+                    }
                     store.updateEntry(request.entryID) { entry in
                         entry.text = text
                         entry.failed = false
                         entry.appName = context.appName ?? entry.appName
                         entry.retry = self.retryInfo(for: mode, context: context)
+                        entry.modelAttempts = attemptsSnapshot
+                        entry.detailMessage = detailSnapshot
                     }
                     TextInserter.insert(text, target: nil) { _ in }
                 }
             } catch {
-                finishWithFailure(error)
+                finishWithFailure(error, attempts: modelAttempts)
             }
         }
     }

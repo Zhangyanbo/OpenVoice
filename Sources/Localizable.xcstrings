@@ -11,6 +11,36 @@
         }
       }
     },
+    "%@ 尚未设置 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ does not have an API key."
+          }
+        }
+      }
+    },
+    "%@ 无法验证这个 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ could not validate this API key."
+          }
+        }
+      }
+    },
+    "API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API keys are stored only in the macOS Keychain. You don't need to choose a model when adding a provider."
+          }
+        }
+      }
+    },
     "API Key(sk-…)": {
       "localizations": {
         "en": {
@@ -281,6 +311,26 @@
         }
       }
     },
+    "上移": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Up"
+          }
+        }
+      }
+    },
+    "下移": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move Down"
+          }
+        }
+      }
+    },
     "个性化": {
       "localizations": {
         "en": {
@@ -357,6 +407,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Change"
+          }
+        }
+      }
+    },
+    "修改 API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change API Key"
           }
         }
       }
@@ -451,6 +511,16 @@
         }
       }
     },
+    "删除服务商": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete Provider"
+          }
+        }
+      }
+    },
     "剩余 %d:%02d": {
       "localizations": {
         "en": {
@@ -541,6 +611,26 @@
         }
       }
     },
+    "后处理失败，已保留原始转录：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Post-processing failed, so the original transcript was kept: %@"
+          }
+        }
+      }
+    },
+    "后处理模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Post-processing Models"
+          }
+        }
+      }
+    },
     "在 GitHub 上提交 Issue": {
       "localizations": {
         "en": {
@@ -567,6 +657,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show details of the last request on the History tab"
+          }
+        }
+      }
+    },
+    "处理说明": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing Note"
           }
         }
       }
@@ -611,6 +711,16 @@
         }
       }
     },
+    "失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed"
+          }
+        }
+      }
+    },
     "如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。": {
       "localizations": {
         "en": {
@@ -641,12 +751,62 @@
         }
       }
     },
+    "将从回退顺序中移除 %@。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ will be removed from the fallback order."
+          }
+        }
+      }
+    },
+    "将删除 %@ 的 API Key，并移除引用该服务商的模型。API Key 删除后无法找回。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This will delete the API key for %@ and remove models that use this provider. The API key cannot be recovered after deletion."
+          }
+        }
+      }
+    },
     "尚未设置 OpenAI API Key。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "No OpenAI API key is set."
+          }
+        }
+      }
+    },
+    "尚未配置语言模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No language models are configured."
+          }
+        }
+      }
+    },
+    "尚未配置语音识别模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No transcription models are configured."
+          }
+        }
+      }
+    },
+    "展开详情": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show Details"
           }
         }
       }
@@ -751,6 +911,16 @@
         }
       }
     },
+    "开启后，对应内容会随每次语音请求发送给当前模型的服务商，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "When enabled, the corresponding content is sent with each voice request to the provider of the active model to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled."
+          }
+        }
+      }
+    },
     "开始翻译输入": {
       "localizations": {
         "en": {
@@ -811,6 +981,36 @@
         }
       }
     },
+    "成功": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Succeeded"
+          }
+        }
+      }
+    },
+    "所有语言模型均失败。最后一次错误：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All language models failed. Last error: %@"
+          }
+        }
+      }
+    },
+    "所有语音识别模型均失败。最后一次错误：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All transcription models failed. Last error: %@"
+          }
+        }
+      }
+    },
     "打开系统设置": {
       "localizations": {
         "en": {
@@ -837,6 +1037,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copy"
+          }
+        }
+      }
+    },
+    "按从上到下的顺序尝试。当前模型失败时，自动切换到下一个。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models are tried from top to bottom. If one fails, the next model is used automatically."
           }
         }
       }
@@ -917,6 +1127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play Sounds"
+          }
+        }
+      }
+    },
+    "收起详情": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hide Details"
           }
         }
       }
@@ -1011,12 +1231,42 @@
         }
       }
     },
+    "旧记录没有模型信息。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model information is not available for older entries."
+          }
+        }
+      }
+    },
+    "是否删除服务商？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Delete this provider?"
+          }
+        }
+      }
+    },
     "是否删除？": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Delete this entry?"
+          }
+        }
+      }
+    },
+    "是否移除模型？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove this model?"
           }
         }
       }
@@ -1141,6 +1391,26 @@
         }
       }
     },
+    "服务商": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Providers"
+          }
+        }
+      }
+    },
+    "服务商已移除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Provider Removed"
+          }
+        }
+      }
+    },
     "未授权": {
       "localizations": {
         "en": {
@@ -1227,6 +1497,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Check for Updates…"
+          }
+        }
+      }
+    },
+    "模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Models"
+          }
+        }
+      }
+    },
+    "模型 %@ 引用的服务商不存在。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The provider referenced by model %@ does not exist."
           }
         }
       }
@@ -1341,6 +1631,16 @@
         }
       }
     },
+    "没有可用的服务商或 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No provider or API key is available."
+          }
+        }
+      }
+    },
     "法语": {
       "localizations": {
         "en": {
@@ -1381,12 +1681,32 @@
         }
       }
     },
+    "添加服务商": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Provider"
+          }
+        }
+      }
+    },
     "添加术语": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Add Term"
+          }
+        }
+      }
+    },
+    "添加模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add Model"
           }
         }
       }
@@ -1477,6 +1797,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Launch at Login"
+          }
+        }
+      }
+    },
+    "移除服务商": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Provider"
+          }
+        }
+      }
+    },
+    "移除模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove Model"
           }
         }
       }
@@ -1671,6 +2011,16 @@
         }
       }
     },
+    "语音识别成功后，按从上到下的顺序尝试整理或翻译。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "After transcription succeeds, models are tried from top to bottom for polishing or translation."
+          }
+        }
+      }
+    },
     "语音识别模型": {
       "localizations": {
         "en": {
@@ -1801,6 +2151,16 @@
         }
       }
     },
+    "转录结果为空，原记录未改动。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The transcript was empty, so the original entry was left unchanged."
+          }
+        }
+      }
+    },
     "过滤本机声音": {
       "localizations": {
         "en": {
@@ -1907,6 +2267,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Re-transcribe"
+          }
+        }
+      }
+    },
+    "重新转录失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Re-transcription failed: %@"
           }
         }
       }

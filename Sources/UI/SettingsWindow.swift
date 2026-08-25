@@ -10,11 +10,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let nav = SettingsNav()
 
     enum Tab: String, CaseIterable {
-        case general, personalization, privacy, glossary, history, request, about
+        case general, models, personalization, privacy, glossary, history, request, about
 
         var title: String {
             switch self {
             case .general: return tr("通用")
+            case .models: return tr("模型")
             case .personalization: return tr("个性化")
             case .privacy: return tr("隐私")
             case .glossary: return tr("术语表")
@@ -27,6 +28,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         var icon: String {
             switch self {
             case .general: return "gearshape.fill"
+            case .models: return "square.stack.3d.up.fill"
             case .personalization: return "slider.horizontal.3"
             case .privacy: return "hand.raised.fill"
             case .glossary: return "character.book.closed.fill"
@@ -39,6 +41,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         var iconColor: Color {
             switch self {
             case .general: return Color(red: 0.42, green: 0.48, blue: 0.56)
+            case .models: return Color(red: 0.33, green: 0.47, blue: 0.92)
             case .personalization: return Color(red: 0.20, green: 0.72, blue: 0.55)
             case .privacy: return Color(red: 0.25, green: 0.55, blue: 0.9)
             case .glossary: return Color(red: 0.95, green: 0.61, blue: 0.19)
@@ -98,6 +101,7 @@ struct SettingsRootView: View {
             Group {
                 switch nav.tab {
                 case .general: GeneralPane()
+                case .models: ModelsPane()
                 case .personalization: PersonalizationPane()
                 case .privacy: PrivacyPane()
                 case .glossary: GlossaryPane()
@@ -428,7 +432,6 @@ private struct GeneralPane: View {
 
             LanguageCard()
 
-            OpenAICard()
         }
     }
 }
@@ -491,7 +494,7 @@ private struct PrivacyPane: View {
     var body: some View {
         PaneScroll(title: tr("隐私")) {
             SettingsCard(title: tr("上下文"),
-                         footer: tr("开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。")) {
+                         footer: tr("开启后，对应内容会随每次语音请求发送给当前模型的服务商，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。")) {
                 SettingsRow(title: tr("使用当前 App 上下文"), subtitle: tr("App 名称与窗口标题")) {
                     Toggle("", isOn: $settings.useAppContext)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
@@ -608,92 +611,318 @@ private struct LanguageCard: View {
     }
 }
 
-// MARK: - OpenAI 卡片
+// MARK: - 模型
 
-private struct OpenAICard: View {
+private struct ModelsPane: View {
     @ObservedObject var settings = SettingsStore.shared
-    @State private var editingKey = false
-    @State private var keyInput = ""
-    @State private var status = ""
-    @State private var validating = false
-
-    private let transcribeOptions = ["", "gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"]
-    private let llmOptions = ["", "gpt-5.6-luna", "gpt-5-nano", "gpt-4.1-nano", "gpt-5.4-mini"]
+    @State private var addingProvider = false
+    @State private var editingProvider: ModelProvider?
+    @State private var addingModel: ModelCapability?
+    @State private var pendingProviderRemoval: ModelProvider?
+    @State private var pendingModelRemoval: PendingModelRemoval?
 
     var body: some View {
-        SettingsCard(title: "OpenAI", footer: tr("默认模型即当前推荐，普通使用无需修改。API Key 只保存在 macOS 钥匙串。")) {
-            if editingKey {
-                VStack(alignment: .leading, spacing: 8) {
-                    SecureField(tr("API Key(sk-…)"), text: $keyInput)
-                        .textFieldStyle(.roundedBorder)
-                    HStack {
-                        Button(tr("保存并验证")) { saveKey() }
-                            .controlSize(.small)
-                            .disabled(keyInput.isEmpty || validating)
-                        Button(tr("取消")) {
-                            editingKey = false; keyInput = ""; status = ""
+        PaneScroll(title: tr("模型")) {
+            SettingsCard(title: tr("服务商"),
+                         footer: tr("API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。")) {
+                ForEach(Array(settings.modelProviders.enumerated()), id: \.element.id) { index, provider in
+                    if index > 0 { CardDivider() }
+                    SettingsRow(title: provider.name, subtitle: provider.kind.displayName) {
+                        HStack(spacing: 9) {
+                            Text(KeychainStore.loadAPIKey(providerID: provider.id) == nil ? tr("未设置") : "•••••••••••")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                            Button(tr("修改")) { editingProvider = provider }
+                                .controlSize(.small)
+                            Button {
+                                pendingProviderRemoval = provider
+                            } label: {
+                                Image(systemName: "minus.circle.fill").foregroundStyle(.tertiary)
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(settings.modelProviders.count <= 1)
+                            .help(tr("移除服务商"))
                         }
-                        .controlSize(.small)
-                        if validating { ProgressView().controlSize(.small) }
-                        if !status.isEmpty {
-                            Text(status).font(.system(size: 11)).foregroundStyle(.secondary)
-                        }
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 10)
-            } else {
-                SettingsRow(title: "API Key",
-                            subtitle: status.isEmpty ? nil : status) {
-                    HStack(spacing: 10) {
-                        Text(KeychainStore.loadAPIKey() != nil ? "•••••••••••" : tr("未设置"))
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                        Button(tr("修改")) { editingKey = true }
-                            .controlSize(.small)
-                    }
+                CardDivider()
+                Button {
+                    addingProvider = true
+                } label: {
+                    Label(tr("添加服务商"), systemImage: "plus")
+                        .font(.system(size: 12))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 12).padding(.vertical, 9)
+                }
+                .buttonStyle(.plain)
+            }
+
+            modelCard(capability: .transcription,
+                      title: tr("语音识别模型"),
+                      footer: tr("按从上到下的顺序尝试。当前模型失败时，自动切换到下一个。"),
+                      models: settings.transcriptionModels)
+
+            modelCard(capability: .language,
+                      title: tr("语言模型"),
+                      footer: tr("语音识别成功后，按从上到下的顺序尝试整理或翻译。"),
+                      models: settings.languageModels)
+        }
+        .sheet(isPresented: $addingProvider) {
+            ProviderKeySheet(provider: nil) { kind, key in
+                _ = settings.addProvider(kind: kind, apiKey: key)
+            }
+        }
+        .sheet(item: $editingProvider) { provider in
+            ProviderKeySheet(provider: provider) { _, key in
+                _ = KeychainStore.saveAPIKey(key, providerID: provider.id)
+            }
+        }
+        .sheet(item: $addingModel) { capability in
+            AddModelSheet(capability: capability, providers: settings.modelProviders) { model in
+                switch capability {
+                case .transcription:
+                    guard !settings.transcriptionModels.contains(where: {
+                        $0.providerID == model.providerID && $0.modelID == model.modelID
+                    }) else { return }
+                    settings.transcriptionModels.append(model)
+                case .language:
+                    guard !settings.languageModels.contains(where: {
+                        $0.providerID == model.providerID && $0.modelID == model.modelID
+                    }) else { return }
+                    settings.languageModels.append(model)
                 }
             }
-            CardDivider()
-            SettingsRow(title: tr("语音识别模型")) {
-                Picker("", selection: $settings.transcribeModel) {
-                    ForEach(transcribeOptions, id: \.self) { model in
-                        Text(model.isEmpty ? tr("默认（%@）", SettingsStore.defaultTranscribeModel) : model).tag(model)
-                    }
-                }
-                .labelsHidden().fixedSize().id(L10n.effective)
+        }
+        .confirmationDialog(tr("是否删除服务商？"),
+                            isPresented: Binding(get: { pendingProviderRemoval != nil },
+                                                 set: { if !$0 { pendingProviderRemoval = nil } }),
+                            presenting: pendingProviderRemoval) { provider in
+            Button(tr("删除服务商"), role: .destructive) {
+                settings.removeProvider(provider)
+                pendingProviderRemoval = nil
             }
-            CardDivider()
-            SettingsRow(title: tr("语言模型")) {
-                Picker("", selection: $settings.llmModel) {
-                    ForEach(llmOptions, id: \.self) { model in
-                        Text(model.isEmpty ? tr("默认（%@）", SettingsStore.defaultLLMModel) : model).tag(model)
-                    }
-                }
-                .labelsHidden().fixedSize().id(L10n.effective)
+            Button(tr("取消"), role: .cancel) { pendingProviderRemoval = nil }
+        } message: { provider in
+            Text(tr("将删除 %@ 的 API Key，并移除引用该服务商的模型。API Key 删除后无法找回。",
+                    provider.name))
+        }
+        .confirmationDialog(tr("是否移除模型？"),
+                            isPresented: Binding(get: { pendingModelRemoval != nil },
+                                                 set: { if !$0 { pendingModelRemoval = nil } }),
+                            presenting: pendingModelRemoval) { pending in
+            Button(tr("移除模型"), role: .destructive) {
+                remove(pending.capability, modelID: pending.model.id)
+                pendingModelRemoval = nil
             }
+            Button(tr("取消"), role: .cancel) { pendingModelRemoval = nil }
+        } message: { pending in
+            Text(tr("将从回退顺序中移除 %@。", pending.model.displayName))
         }
     }
 
-    private func saveKey() {
-        let key = keyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+    @ViewBuilder
+    private func modelCard(capability: ModelCapability, title: String, footer: String,
+                           models: [ConfiguredModel]) -> some View {
+        SettingsCard(title: title, footer: footer) {
+            ForEach(Array(models.enumerated()), id: \.element.id) { index, model in
+                if index > 0 { CardDivider() }
+                ModelPriorityRow(index: index, model: model,
+                                 provider: settings.modelProviders.first { $0.id == model.providerID },
+                                 count: models.count,
+                                 moveUp: { move(capability, from: index, offset: -1) },
+                                 moveDown: { move(capability, from: index, offset: 1) },
+                                 remove: {
+                                     pendingModelRemoval = PendingModelRemoval(
+                                         capability: capability, model: model)
+                                 })
+            }
+            CardDivider()
+            Button {
+                addingModel = capability
+            } label: {
+                Label(tr("添加模型"), systemImage: "plus")
+                    .font(.system(size: 12))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12).padding(.vertical, 9)
+            }
+            .buttonStyle(.plain)
+            .disabled(settings.modelProviders.isEmpty)
+        }
+    }
+
+    private func move(_ capability: ModelCapability, from index: Int, offset: Int) {
+        let target = index + offset
+        switch capability {
+        case .transcription:
+            guard settings.transcriptionModels.indices.contains(index),
+                  settings.transcriptionModels.indices.contains(target) else { return }
+            settings.transcriptionModels.swapAt(index, target)
+        case .language:
+            guard settings.languageModels.indices.contains(index),
+                  settings.languageModels.indices.contains(target) else { return }
+            settings.languageModels.swapAt(index, target)
+        }
+    }
+
+    private func remove(_ capability: ModelCapability, modelID: String) {
+        switch capability {
+        case .transcription:
+            guard settings.transcriptionModels.count > 1 else { return }
+            settings.transcriptionModels.removeAll { $0.id == modelID }
+        case .language:
+            guard settings.languageModels.count > 1 else { return }
+            settings.languageModels.removeAll { $0.id == modelID }
+        }
+    }
+}
+
+private struct PendingModelRemoval: Identifiable {
+    let capability: ModelCapability
+    let model: ConfiguredModel
+    var id: String { "\(capability.rawValue):\(model.id)" }
+}
+
+private struct ModelPriorityRow: View {
+    let index: Int
+    let model: ConfiguredModel
+    let provider: ModelProvider?
+    let count: Int
+    let moveUp: () -> Void
+    let moveDown: () -> Void
+    let remove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text("\(index + 1)")
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
+                .background(Color.secondary.opacity(0.12), in: Circle())
+            VStack(alignment: .leading, spacing: 2) {
+                Text(model.displayName).font(.system(size: 13))
+                Text(provider?.name ?? tr("服务商已移除"))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+            Spacer()
+            HStack(spacing: 5) {
+                Button(action: moveUp) { Image(systemName: "chevron.up") }
+                    .disabled(index == 0).help(tr("上移"))
+                Button(action: moveDown) { Image(systemName: "chevron.down") }
+                    .disabled(index + 1 >= count).help(tr("下移"))
+                Button(action: remove) {
+                    Image(systemName: "minus.circle.fill").foregroundStyle(.tertiary)
+                }
+                .buttonStyle(.plain).disabled(count <= 1).help(tr("移除模型"))
+            }
+            .buttonStyle(.borderless)
+            .controlSize(.small)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 8)
+    }
+}
+
+private struct ProviderKeySheet: View {
+    let provider: ModelProvider?
+    let onSave: (ModelProviderKind, String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var kind: ModelProviderKind = .openAI
+    @State private var key = ""
+    @State private var validating = false
+    @State private var errorText = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(provider == nil ? tr("添加服务商") : tr("修改 API Key"))
+                .font(.system(size: 18, weight: .semibold))
+            Picker(tr("服务商"), selection: $kind) {
+                ForEach(ModelProviderKind.allCases) { item in
+                    Text(item.displayName).tag(item)
+                }
+            }
+            .disabled(provider != nil)
+            SecureField(tr("API Key(sk-…)"), text: $key)
+                .textFieldStyle(.roundedBorder)
+            if !errorText.isEmpty {
+                Text(errorText).font(.system(size: 11)).foregroundStyle(.red)
+            }
+            HStack {
+                Spacer()
+                Button(tr("取消")) { dismiss() }
+                Button(tr("保存并验证"), action: validate)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || validating)
+                if validating { ProgressView().controlSize(.small) }
+            }
+        }
+        .padding(22)
+        .frame(width: 400)
+        .onAppear { if let provider { kind = provider.kind } }
+    }
+
+    private func validate() {
+        let candidate = key.trimmingCharacters(in: .whitespacesAndNewlines)
         validating = true
-        status = tr("正在验证…")
+        errorText = ""
         Task {
             do {
-                try await OpenAIClient(apiKey: key).validateKey()
-                _ = KeychainStore.saveAPIKey(key)
+                switch kind {
+                case .openAI: try await OpenAIClient(apiKey: candidate).validateKey()
+                }
                 await MainActor.run {
-                    validating = false; editingKey = false; keyInput = ""
-                    status = tr("已保存到 Keychain")
+                    onSave(kind, candidate)
+                    validating = false
+                    dismiss()
                 }
             } catch {
                 await MainActor.run {
                     validating = false
-                    status = tr("OpenAI 无法验证这个 API Key")
+                    errorText = tr("%@ 无法验证这个 API Key。", kind.displayName)
                 }
             }
         }
+    }
+}
+
+private struct AddModelSheet: View {
+    let capability: ModelCapability
+    let providers: [ModelProvider]
+    let onAdd: (ConfiguredModel) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var providerID = ""
+    @State private var modelID = ""
+
+    private var provider: ModelProvider? { providers.first { $0.id == providerID } }
+    private var presets: [ModelPreset] { provider?.kind.presets(for: capability) ?? [] }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(tr("添加模型")).font(.system(size: 18, weight: .semibold))
+            Picker(tr("服务商"), selection: $providerID) {
+                ForEach(providers) { provider in Text(provider.name).tag(provider.id) }
+            }
+            Picker(tr("模型"), selection: $modelID) {
+                ForEach(presets) { preset in Text(preset.displayName).tag(preset.id) }
+            }
+            HStack {
+                Spacer()
+                Button(tr("取消")) { dismiss() }
+                Button(tr("添加")) {
+                    guard let preset = presets.first(where: { $0.id == modelID }) else { return }
+                    onAdd(ConfiguredModel(providerID: providerID, modelID: preset.id,
+                                          displayName: preset.displayName))
+                    dismiss()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(provider == nil || modelID.isEmpty)
+            }
+        }
+        .padding(22)
+        .frame(width: 400)
+        .onAppear {
+            if providerID.isEmpty { providerID = providers.first?.id ?? "" }
+            modelID = presets.first?.id ?? ""
+        }
+        .onChange(of: providerID) { _, _ in modelID = presets.first?.id ?? "" }
     }
 }
 
@@ -831,6 +1060,7 @@ private struct HistoryPane: View {
     @State private var copiedID: UUID?
     @State private var showDebug = false
     @State private var pendingDelete: HistoryStore.Entry?
+    @State private var expandedIDs = Set<UUID>()
     /// 默认只渲染最近 10 条,点击「显示更多」再加载 20 条,避免长列表卡顿
     @State private var visibleCount = 10
 
@@ -871,9 +1101,17 @@ private struct HistoryPane: View {
                             ForEach(Array(visible.enumerated()), id: \.element.id) { index, entry in
                                 if index > 0 { CardDivider() }
                                 HistoryRow(entry: entry,
+                                           expanded: expandedIDs.contains(entry.id),
                                            copied: copiedID == entry.id,
                                            canRetranscribe: history.canRetranscribe(entry.id),
                                            isRetranscribing: history.retranscribingID == entry.id,
+                                           onToggle: {
+                                               if expandedIDs.contains(entry.id) {
+                                                   expandedIDs.remove(entry.id)
+                                               } else {
+                                                   expandedIDs.insert(entry.id)
+                                               }
+                                           },
                                            onCopy: {
                                                NSPasteboard.general.clearContents()
                                                NSPasteboard.general.setString(entry.text, forType: .string)
@@ -935,6 +1173,7 @@ private struct HistoryPane: View {
                             presenting: pendingDelete) { entry in
             Button(tr("删除"), role: .destructive) {
                 history.remove(entry)
+                expandedIDs.remove(entry.id)
                 pendingDelete = nil
             }
             Button(tr("取消"), role: .cancel) { pendingDelete = nil }
@@ -1058,74 +1297,171 @@ private struct RequestPane: View {
 
 private struct HistoryRow: View {
     let entry: HistoryStore.Entry
+    let expanded: Bool
     let copied: Bool
     /// 该条目是否保留了可重新转录的录音(由 HistoryStore 统一管理)
     let canRetranscribe: Bool
     /// 该条目正在重新转录(显示旋转指示)
     let isRetranscribing: Bool
+    let onToggle: () -> Void
     let onCopy: () -> Void
     let onDelete: () -> Void
     var onRetranscribe: (() -> Void)? = nil
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            VStack(alignment: .leading, spacing: 3) {
-                // 只显示前两行,超出部分以尾部省略号标记;完整内容用旁边的复制按钮获取。
-                // 不开 textSelection:点击选中会导致文本重排(省略号消失、整段展开盖住 meta 信息)
-                if entry.failed {
-                    Text(tr("转录失败"))
-                        .font(.system(size: 12.5))
-                        .foregroundStyle(.red)
-                } else {
-                    // 预览忽略换行符,避免第一行很短时浪费宝贵的两行空间
-                    Text(entry.text.replacingOccurrences(of: "\n", with: " "))
-                        .font(.system(size: 12.5))
-                        .lineLimit(2)
-                        .truncationMode(.tail)
-                }
-                HStack(spacing: 6) {
-                    Text(entry.date.formatted(date: .abbreviated, time: .shortened))
-                    Text("·")
-                    Text(entry.mode)
-                    if let app = entry.appName {
-                        Text("·")
-                        Text(app)
+        VStack(spacing: 0) {
+            HStack(alignment: .top, spacing: 8) {
+                Button(action: onToggle) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: expanded ? "chevron.down" : "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 10, height: 18)
+                        VStack(alignment: .leading, spacing: 3) {
+                            if entry.failed {
+                                Text(tr("转录失败"))
+                                    .font(.system(size: 12.5))
+                                    .foregroundStyle(.red)
+                            } else {
+                                Text(expanded ? entry.text : entry.text.replacingOccurrences(of: "\n", with: " "))
+                                    .font(.system(size: 12.5))
+                                    .lineLimit(expanded ? nil : 2)
+                                    .truncationMode(.tail)
+                                    .multilineTextAlignment(.leading)
+                            }
+                            HStack(spacing: 6) {
+                                Text(entry.date.formatted(date: .abbreviated, time: .shortened))
+                                Text("·")
+                                Text(entry.mode)
+                                if let app = entry.appName {
+                                    Text("·")
+                                    Text(app)
+                                }
+                            }
+                            .font(.system(size: 10.5))
+                            .foregroundStyle(.tertiary)
+                        }
+                        Spacer(minLength: 8)
                     }
+                    .contentShape(Rectangle())
                 }
-                .font(.system(size: 10.5))
-                .foregroundStyle(.tertiary)
-            }
-            Spacer(minLength: 12)
-            // 按钮常驻,避免 hover 触发文字重排;复制只用图标
-            HStack(spacing: 4) {
-                // 顺序固定:重新转录、复制、删除 —— 无论某行缺哪个按钮,右侧删除的位置都不变
-                // 只有保留了录音的条目才有重新转录(最近 10 条)
-                if isRetranscribing {
-                    ProgressView()
-                        .controlSize(.small)
-                        .frame(width: 24, height: 24)
-                } else if canRetranscribe {
-                    IconButton(systemName: "arrow.clockwise",
+                .buttonStyle(.plain)
+                .help(expanded ? tr("收起详情") : tr("展开详情"))
+
+                // 按钮常驻,避免 hover 触发文字重排;操作区不触发展开。
+                HStack(spacing: 4) {
+                    if isRetranscribing {
+                        ProgressView()
+                            .controlSize(.small)
+                            .frame(width: 24, height: 24)
+                    } else if canRetranscribe {
+                        IconButton(systemName: "arrow.clockwise",
+                                   tint: .secondary,
+                                   help: tr("重新转录"),
+                                   action: { onRetranscribe?() })
+                    }
+                    if !entry.failed {
+                        IconButton(systemName: copied ? "checkmark" : "doc.on.doc",
+                                   tint: copied ? .green : .secondary,
+                                   help: copied ? tr("已复制") : tr("复制"),
+                                   action: onCopy)
+                    }
+                    IconButton(systemName: "trash",
                                tint: .secondary,
-                               help: tr("重新转录"),
-                               action: { onRetranscribe?() })
+                               help: tr("删除"),
+                               action: onDelete)
                 }
-                // 失败行没有可复制的正文
-                if !entry.failed {
-                    IconButton(systemName: copied ? "checkmark" : "doc.on.doc",
-                               tint: copied ? .green : .secondary,
-                               help: copied ? tr("已复制") : tr("复制"),
-                               action: onCopy)
-                }
-                IconButton(systemName: "trash",
-                           tint: .secondary,
-                           help: tr("删除"),
-                           action: onDelete)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 9)
+
+            if expanded {
+                Divider().padding(.leading, 30).opacity(0.55)
+                HistoryModelDetails(entry: entry)
+                    .padding(.leading, 30)
+                    .padding(.trailing, 12)
+                    .padding(.vertical, 10)
             }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 9)
-        .contentShape(Rectangle())
+    }
+}
+
+private struct HistoryModelDetails: View {
+    let entry: HistoryStore.Entry
+
+    private var transcriptionAttempts: [ModelAttempt] {
+        entry.modelAttempts.filter { $0.capability == .transcription }
+    }
+
+    private var processingAttempts: [ModelAttempt] {
+        entry.modelAttempts.filter { $0.capability == .language }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            if entry.modelAttempts.isEmpty && entry.detailMessage == nil {
+                Text(tr("旧记录没有模型信息。"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.tertiary)
+            } else {
+                if !transcriptionAttempts.isEmpty {
+                    attemptSection(title: tr("语音识别模型"), attempts: transcriptionAttempts)
+                }
+                if !processingAttempts.isEmpty {
+                    attemptSection(title: tr("后处理模型"), attempts: processingAttempts)
+                }
+                if let message = entry.detailMessage {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(entry.failed ? tr("错误") : tr("处理说明"))
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                        Text(message)
+                            .font(.system(size: 11))
+                            .foregroundStyle(entry.failed ? Color.red : Color.secondary)
+                            .textSelection(.enabled)
+                    }
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func attemptSection(title: String, attempts: [ModelAttempt]) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(size: 10.5, weight: .semibold))
+                .foregroundStyle(.secondary)
+            ForEach(Array(attempts.enumerated()), id: \.element.id) { index, attempt in
+                HStack(alignment: .top, spacing: 8) {
+                    Text("\(index + 1)")
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 18, height: 18)
+                        .background(Color.secondary.opacity(0.11), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 6) {
+                            Text(attempt.modelName)
+                                .font(.system(size: 11.5, weight: .medium))
+                            Text(attempt.succeeded ? tr("成功") : tr("失败"))
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(attempt.succeeded ? Color.green : Color.red)
+                                .padding(.horizontal, 5).padding(.vertical, 1.5)
+                                .background((attempt.succeeded ? Color.green : Color.red).opacity(0.10), in: Capsule())
+                        }
+                        Text("\(attempt.providerName) · \(attempt.modelID)")
+                            .font(.system(size: 10.5, design: .monospaced))
+                            .foregroundStyle(.tertiary)
+                            .textSelection(.enabled)
+                        if let reason = attempt.failureReason {
+                            Text(reason)
+                                .font(.system(size: 10.5))
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

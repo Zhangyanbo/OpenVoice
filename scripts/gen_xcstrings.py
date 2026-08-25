@@ -5,6 +5,7 @@ import json
 PAIRS = {
     # 侧边栏 / 窗口标题
     "通用": "General",
+    "模型": "Models",
     "个性化": "Personalization",
     "隐私": "Privacy",
     "术语表": "Glossary",
@@ -44,6 +45,17 @@ PAIRS = {
     "显示更多": "Show More",
     "转录失败": "Transcription Failed",
     "重新转录": "Re-transcribe",
+    "展开详情": "Show Details",
+    "收起详情": "Hide Details",
+    "旧记录没有模型信息。": "Model information is not available for older entries.",
+    "后处理模型": "Post-processing Models",
+    "处理说明": "Processing Note",
+    "成功": "Succeeded",
+    "失败": "Failed",
+    "后处理失败，已保留原始转录：%@":
+        "Post-processing failed, so the original transcript was kept: %@",
+    "重新转录失败：%@": "Re-transcription failed: %@",
+    "转录结果为空，原记录未改动。": "The transcript was empty, so the original entry was left unchanged.",
     # 自动更新
     "检查更新…": "Check for Updates…",
     "正在检查…": "Checking…",
@@ -78,6 +90,8 @@ PAIRS = {
     "上下文": "Context",
     "开启后，对应内容会随每次语音请求发送给 OpenAI 用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。":
         "When enabled, the corresponding content is sent with each voice request to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled.",
+    "开启后，对应内容会随每次语音请求发送给当前模型的服务商，用于提高转录准确率。上下文只在你主动开始语音输入时通过辅助功能 API 读取；关闭后完全不发送。":
+        "When enabled, the corresponding content is sent with each voice request to the provider of the active model to improve transcription accuracy. Context is read via the Accessibility API only when you actively start voice input; nothing is sent while disabled.",
     "使用当前 App 上下文": "Use Current App Context",
     "App 名称与窗口标题": "App name and window title",
     "读取光标附近文字": "Read Text Near Cursor",
@@ -116,7 +130,39 @@ PAIRS = {
     "设为默认": "Set as Default",
     "添加翻译语言，如：日语": "Add a translation language, e.g. Japanese",
     "添加": "Add",
-    # OpenAI 卡片
+    # 服务商与模型
+    "服务商": "Providers",
+    "API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。":
+        "API keys are stored only in the macOS Keychain. You don't need to choose a model when adding a provider.",
+    "添加服务商": "Add Provider",
+    "移除服务商": "Remove Provider",
+    "是否删除服务商？": "Delete this provider?",
+    "删除服务商": "Delete Provider",
+    "将删除 %@ 的 API Key，并移除引用该服务商的模型。API Key 删除后无法找回。":
+        "This will delete the API key for %@ and remove models that use this provider. The API key cannot be recovered after deletion.",
+    "按从上到下的顺序尝试。当前模型失败时，自动切换到下一个。":
+        "Models are tried from top to bottom. If one fails, the next model is used automatically.",
+    "语音识别成功后，按从上到下的顺序尝试整理或翻译。":
+        "After transcription succeeds, models are tried from top to bottom for polishing or translation.",
+    "添加模型": "Add Model",
+    "服务商已移除": "Provider Removed",
+    "上移": "Move Up",
+    "下移": "Move Down",
+    "移除模型": "Remove Model",
+    "是否移除模型？": "Remove this model?",
+    "将从回退顺序中移除 %@。": "%@ will be removed from the fallback order.",
+    "修改 API Key": "Change API Key",
+    "%@ 无法验证这个 API Key。": "%@ could not validate this API key.",
+    "尚未配置语音识别模型。": "No transcription models are configured.",
+    "尚未配置语言模型。": "No language models are configured.",
+    "所有语音识别模型均失败。最后一次错误：%@":
+        "All transcription models failed. Last error: %@",
+    "所有语言模型均失败。最后一次错误：%@":
+        "All language models failed. Last error: %@",
+    "没有可用的服务商或 API Key。": "No provider or API key is available.",
+    "模型 %@ 引用的服务商不存在。": "The provider referenced by model %@ does not exist.",
+    "%@ 尚未设置 API Key。": "%@ does not have an API key.",
+    # 旧 OpenAI 卡片（保留条目供迁移与引导使用）
     "默认模型即当前推荐，普通使用无需修改。API Key 只保存在 macOS 钥匙串。":
         "The default models are the current recommendations; no changes needed for everyday use. Your API key is stored only in the macOS Keychain.",
     "API Key(sk-…)": "API Key (sk-…)",

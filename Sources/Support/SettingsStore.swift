@@ -192,20 +192,20 @@ final class SettingsStore: ObservableObject {
     /// 开启后在历史页显示最近一次请求详情
     @Published var debugMode: Bool { didSet { defaults.set(debugMode, forKey: "debugMode") } }
 
-    // MARK: - OpenAI
-    /// 空字符串表示"默认"
-    @Published var transcribeModel: String { didSet { defaults.set(transcribeModel, forKey: "transcribeModel") } }
-    @Published var llmModel: String { didSet { defaults.set(llmModel, forKey: "llmModel") } }
+    // MARK: - 服务商与模型回退链
+    @Published var modelProviders: [ModelProvider] {
+        didSet { saveCodable(modelProviders, forKey: "modelProviders") }
+    }
+    @Published var transcriptionModels: [ConfiguredModel] {
+        didSet { saveCodable(transcriptionModels, forKey: "transcriptionModels") }
+    }
+    @Published var languageModels: [ConfiguredModel] {
+        didSet { saveCodable(languageModels, forKey: "languageModels") }
+    }
 
     /// 首启引导是否已完成
     @Published var onboardingDone: Bool { didSet { defaults.set(onboardingDone, forKey: "onboardingDone") } }
 
-    var effectiveTranscribeModel: String {
-        transcribeModel.isEmpty ? Self.defaultTranscribeModel : transcribeModel
-    }
-    var effectiveLLMModel: String {
-        llmModel.isEmpty ? Self.defaultLLMModel : llmModel
-    }
     var defaultTargetLanguage: String { targetLanguages.first ?? "英语" }
 
     private init() {
@@ -228,9 +228,65 @@ final class SettingsStore: ObservableObject {
         autoLearn = defaults.object(forKey: "autoLearn") as? Bool ?? true
         keepHistory = defaults.object(forKey: "keepHistory") as? Bool ?? true
         debugMode = defaults.object(forKey: "debugMode") as? Bool ?? false
-        transcribeModel = defaults.string(forKey: "transcribeModel") ?? ""
-        llmModel = defaults.string(forKey: "llmModel") ?? ""
+        let provider = ModelProvider.defaultOpenAI
+        modelProviders = Self.loadCodable([ModelProvider].self, from: defaults, key: "modelProviders")
+            ?? [provider]
+        transcriptionModels = Self.loadCodable([ConfiguredModel].self, from: defaults, key: "transcriptionModels")
+            ?? [
+                ConfiguredModel(id: "transcription-gpt-4o", providerID: provider.id,
+                                modelID: Self.defaultTranscribeModel, displayName: "GPT-4o transcribe"),
+                ConfiguredModel(id: "transcription-whisper", providerID: provider.id,
+                                modelID: "whisper-1", displayName: "whisper-1"),
+            ]
+        let previousLLM = defaults.string(forKey: "llmModel")?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let migratedLLM = (previousLLM?.isEmpty == false ? previousLLM : nil) ?? Self.defaultLLMModel
+        languageModels = Self.loadCodable([ConfiguredModel].self, from: defaults, key: "languageModels")
+            ?? [ConfiguredModel(id: "language-primary", providerID: provider.id, modelID: migratedLLM)]
         onboardingDone = defaults.object(forKey: "onboardingDone") as? Bool ?? false
+    }
+
+    func addProvider(kind: ModelProviderKind, apiKey: String) -> ModelProvider {
+        let ordinal = modelProviders.filter { $0.kind == kind }.count + 1
+        let provider = ModelProvider(
+            id: UUID().uuidString,
+            kind: kind,
+            name: ordinal == 1 ? kind.displayName : "\(kind.displayName) \(ordinal)"
+        )
+        modelProviders.append(provider)
+        _ = KeychainStore.saveAPIKey(apiKey, providerID: provider.id)
+        return provider
+    }
+
+    /// 删除服务商时同时删除引用它的模型，避免留下失效引用。
+    func removeProvider(_ provider: ModelProvider) {
+        guard modelProviders.count > 1 else { return }
+        modelProviders.removeAll { $0.id == provider.id }
+        transcriptionModels.removeAll { $0.providerID == provider.id }
+        languageModels.removeAll { $0.providerID == provider.id }
+        KeychainStore.deleteAPIKey(providerID: provider.id)
+
+        guard let replacement = modelProviders.first else { return }
+        if transcriptionModels.isEmpty,
+           let preset = replacement.kind.presets(for: .transcription).first {
+            transcriptionModels = [ConfiguredModel(providerID: replacement.id, modelID: preset.id,
+                                                   displayName: preset.displayName)]
+        }
+        if languageModels.isEmpty,
+           let preset = replacement.kind.presets(for: .language).first {
+            languageModels = [ConfiguredModel(providerID: replacement.id, modelID: preset.id,
+                                              displayName: preset.displayName)]
+        }
+    }
+
+    private func saveCodable<T: Encodable>(_ value: T, forKey key: String) {
+        guard let data = try? JSONEncoder().encode(value) else { return }
+        defaults.set(data, forKey: key)
+    }
+
+    private static func loadCodable<T: Decodable>(_ type: T.Type, from defaults: UserDefaults,
+                                                   key: String) -> T? {
+        guard let data = defaults.data(forKey: key) else { return nil }
+        return try? JSONDecoder().decode(type, from: data)
     }
 
     // MARK: - 悬浮条位置(按屏幕记忆)

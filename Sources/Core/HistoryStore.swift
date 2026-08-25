@@ -36,8 +36,14 @@ final class HistoryStore: ObservableObject {
         var appName: String?
         var failed: Bool = false
         var retry: RetryInfo?
+        /// 语音识别与后处理的全部模型尝试，按实际调用顺序保存。
+        var modelAttempts: [ModelAttempt] = []
+        /// 整体失败、回落到原始转录或重新转录失败时的说明。
+        var detailMessage: String?
 
-        private enum CodingKeys: String, CodingKey { case id, text, date, mode, appName, failed, retry }
+        private enum CodingKeys: String, CodingKey {
+            case id, text, date, mode, appName, failed, retry, modelAttempts, detailMessage
+        }
 
         /// 手写解码:旧版本历史文件没有 failed/retry 字段。
         /// 合成的 Codable 遇到缺失键会抛错并丢弃整个列表,这里必须用 decodeIfPresent 兜底。
@@ -50,11 +56,14 @@ final class HistoryStore: ObservableObject {
             appName = try c.decodeIfPresent(String.self, forKey: .appName)
             failed = try c.decodeIfPresent(Bool.self, forKey: .failed) ?? false
             retry = try c.decodeIfPresent(RetryInfo.self, forKey: .retry)
+            modelAttempts = try c.decodeIfPresent([ModelAttempt].self, forKey: .modelAttempts) ?? []
+            detailMessage = try c.decodeIfPresent(String.self, forKey: .detailMessage)
         }
 
         /// 自定义 init(from:) 会抑制逐成员构造器,这里显式提供
         init(text: String, mode: String, appName: String?,
-             failed: Bool = false, retry: RetryInfo? = nil) {
+             failed: Bool = false, retry: RetryInfo? = nil,
+             modelAttempts: [ModelAttempt] = [], detailMessage: String? = nil) {
             self.id = UUID()
             self.text = text
             self.date = Date()
@@ -62,6 +71,8 @@ final class HistoryStore: ObservableObject {
             self.appName = appName
             self.failed = failed
             self.retry = retry
+            self.modelAttempts = modelAttempts
+            self.detailMessage = detailMessage
         }
     }
 
@@ -101,9 +112,11 @@ final class HistoryStore: ObservableObject {
     // MARK: - 增删查
 
     func add(text: String, mode: String, appName: String?,
-             failed: Bool = false, wav: Data? = nil, retry: RetryInfo? = nil) {
+             failed: Bool = false, wav: Data? = nil, retry: RetryInfo? = nil,
+             modelAttempts: [ModelAttempt] = [], detailMessage: String? = nil) {
         guard !text.isEmpty || failed else { return }
-        let entry = Entry(text: text, mode: mode, appName: appName, failed: failed, retry: retry)
+        let entry = Entry(text: text, mode: mode, appName: appName, failed: failed, retry: retry,
+                          modelAttempts: modelAttempts, detailMessage: detailMessage)
         entries.insert(entry, at: 0)
 
         // 写录音文件(有新转录就顺手执行保留上限检查,清理不会漏)
