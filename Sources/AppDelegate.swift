@@ -10,12 +10,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var startItem: NSMenuItem!
     private var translateItem: NSMenuItem!
     private var cancellables = Set<AnyCancellable>()
+    private var pendingUpdateVersion: String?
+    private var updatePromptTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SettingsStore.shared.applyAppearance()
         setupStatusItem()
         setupHotkeys()
         setupAutoLearnToast()
+        setupUpdates()
         startTapWatchdog()
 
         // 切换界面语言时重建所有原生菜单(SwiftUI 界面靠视图观察自动刷新,
@@ -189,5 +192,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         controller.autoLearner.onLearned = { term, undo in
             ToastPanel.show(message: tr("已学习“%@”", term), actionTitle: tr("撤销"), action: undo)
         }
+    }
+
+    // MARK: - 自动更新
+
+    private func setupUpdates() {
+        let updater = UpdateManager.shared
+        let panel = FloatingPanelController.shared
+        updater.onUpdateAvailable = { [weak self] version in
+            self?.enqueueUpdatePrompt(version: version)
+        }
+        panel.onInstallUpdate = {
+            self.pendingUpdateVersion = nil
+            self.updatePromptTimer?.invalidate()
+            updater.installAvailableUpdate()
+        }
+        panel.onDismissUpdate = { [weak self, weak panel] in
+            self?.pendingUpdateVersion = nil
+            self?.updatePromptTimer?.invalidate()
+            updater.dismissUpdateBubble()
+            panel?.hide()
+        }
+        updater.startAutomaticChecks()
+    }
+
+    private func enqueueUpdatePrompt(version: String) {
+        pendingUpdateVersion = version
+        if presentPendingUpdateIfPossible() { return }
+        updatePromptTimer?.invalidate()
+        updatePromptTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] timer in
+            guard let self else { timer.invalidate(); return }
+            if self.presentPendingUpdateIfPossible() { timer.invalidate() }
+        }
+    }
+
+    @discardableResult
+    private func presentPendingUpdateIfPossible() -> Bool {
+        guard let version = pendingUpdateVersion,
+              controller.canPresentUpdatePrompt else { return false }
+        pendingUpdateVersion = nil
+        FloatingPanelController.shared.showUpdate(version: version)
+        return true
     }
 }

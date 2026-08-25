@@ -8,6 +8,7 @@ final class PanelModel: ObservableObject {
         case listening
         case transcribing
         case error(String)
+        case update(String)
     }
 
     @Published var phase: Phase = .listening
@@ -31,6 +32,8 @@ final class PanelModel: ObservableObject {
     var onRetry: (() -> Void)?
     var onDismissError: (() -> Void)?
     var onLanguageChange: ((String) -> Void)?
+    var onInstallUpdate: (() -> Void)?
+    var onDismissUpdate: (() -> Void)?
     /// SwiftUI 布局完成后回报胶囊实际尺寸,窗口据此调整大小
     var onSizeChange: ((CGSize) -> Void)?
 }
@@ -40,6 +43,8 @@ final class PanelModel: ObservableObject {
 /// - 浮在普通窗口之上,跟随当前使用的窗口所在屏幕;
 /// - 可拖动,位置持久化;用完自动消失。
 final class FloatingPanelController: NSObject, NSWindowDelegate {
+    static let shared = FloatingPanelController()
+
     private var panel: NSPanel?
     private var hostView: NSHostingView<RecordingBarView>?
     private let model = PanelModel()
@@ -63,6 +68,14 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         get { model.onLanguageChange }
         set { model.onLanguageChange = newValue }
     }
+    var onInstallUpdate: (() -> Void)? {
+        get { model.onInstallUpdate }
+        set { model.onInstallUpdate = newValue }
+    }
+    var onDismissUpdate: (() -> Void)? {
+        get { model.onDismissUpdate }
+        set { model.onDismissUpdate = newValue }
+    }
 
     func showListening(translation: (String, [String])?) {
         model.phase = .listening
@@ -83,6 +96,13 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     func showError(_ message: String) {
         model.phase = .error(message)
+        show()
+    }
+
+    func showUpdate(version: String) {
+        model.phase = .update(version)
+        model.countdownSeconds = nil
+        model.translation = nil
         show()
     }
 
@@ -221,6 +241,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 struct RecordingBarView: View {
     @ObservedObject var model: PanelModel
     @ObservedObject var settings = SettingsStore.shared
+    @ObservedObject var updater = UpdateManager.shared
 
     var body: some View {
         Group {
@@ -228,6 +249,7 @@ struct RecordingBarView: View {
             case .listening: listening
             case .transcribing: transcribing
             case .error(let message): errorView(message)
+            case .update(let version): updateView(version)
             }
         }
         .padding(.horizontal, 16)
@@ -237,7 +259,9 @@ struct RecordingBarView: View {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
-                    .fill(Color.black.opacity(0.45))
+                    .fill(model.isUpdate
+                          ? Color(red: 0.08, green: 0.36, blue: 0.86).opacity(0.88)
+                          : Color.black.opacity(0.45))
             }
         }
         .overlay {
@@ -334,6 +358,50 @@ struct RecordingBarView: View {
                 .controlSize(.small)
         }
     }
+
+    private func updateView(_ version: String) -> some View {
+        HStack(alignment: .center, spacing: 11) {
+            Image(systemName: "arrow.down.circle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(tr("OpenVoice %@ 可以更新", version))
+                    .font(.system(size: 12.5, weight: .semibold))
+                    .foregroundStyle(.white)
+                if case .failed(let message) = updater.phase {
+                    Text(message)
+                        .font(.system(size: 10.5))
+                        .foregroundStyle(.white.opacity(0.78))
+                        .lineLimit(2)
+                        .frame(maxWidth: 260, alignment: .leading)
+                }
+            }
+            switch updater.phase {
+            case .downloading:
+                ProgressView().controlSize(.small).tint(.white)
+                Text(tr("正在下载…"))
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+            case .installing:
+                ProgressView().controlSize(.small).tint(.white)
+                Text(tr("正在安装…"))
+                    .font(.system(size: 11.5, weight: .medium))
+                    .foregroundStyle(.white.opacity(0.9))
+            default:
+                Button(tr("升级")) { model.onInstallUpdate?() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.white)
+                    .foregroundStyle(Color(red: 0.08, green: 0.32, blue: 0.76))
+                    .controlSize(.small)
+                Button { model.onDismissUpdate?() } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 9, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.78))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
 }
 
 extension PanelModel {
@@ -343,7 +411,13 @@ extension PanelModel {
         case .listening: return 0
         case .transcribing: return 1
         case .error: return 2
+        case .update: return 3
         }
+    }
+
+    var isUpdate: Bool {
+        if case .update = phase { return true }
+        return false
     }
 }
 

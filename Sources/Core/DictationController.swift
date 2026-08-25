@@ -62,10 +62,20 @@ final class DictationController {
         return false
     }
 
+    var isIdle: Bool {
+        if case .idle = state { return true }
+        return false
+    }
+
+    /// 更新提示不能覆盖录音、转录或保留着重试音频的错误气泡。
+    var canPresentUpdatePrompt: Bool {
+        isIdle && failedAttempt == nil
+    }
+
     private let settings = SettingsStore.shared
     private let glossary = GlossaryStore.shared
     private let recorder = AudioRecorder()
-    private let panel = FloatingPanelController()
+    private let panel = FloatingPanelController.shared
     let autoLearner = AutoLearner()
 
     /// 转录失败时保留的录音,重试后或成功后即丢弃(spec §19)

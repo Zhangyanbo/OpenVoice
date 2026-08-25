@@ -101,7 +101,7 @@ struct SettingsRootView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(width: 720, height: 520)
-        .onChange(of: settings.debugMode) { debug in
+        .onChange(of: settings.debugMode) { _, debug in
             if !debug && nav.tab == .request { nav.tab = .general }
         }
     }
@@ -112,11 +112,14 @@ struct SettingsRootView: View {
             Spacer().frame(height: 40)
 
             // 头部:大图标居中竖排,不拘泥于「左图右字」
-            VStack(spacing: 2) {
+            VStack(spacing: 1) {
                 AppMark(size: 64)
                 Text("OpenVoice")
-                    .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                    .font(.system(size: 14.5, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.82))
+                Text(tr("版本 %@", appVersion))
+                    .font(.system(size: 9.5, weight: .medium))
+                    .foregroundStyle(.tertiary)
             }
             .frame(maxWidth: .infinity)
             .padding(.bottom, 16)
@@ -127,10 +130,101 @@ struct SettingsRootView: View {
                 }
             }
             Spacer()
+            UpdateSidebarButton()
         }
         .padding(10)
         .frame(width: 178)
         .background(.regularMaterial)
+    }
+
+    private var appVersion: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—"
+    }
+}
+
+private struct UpdateSidebarButton: View {
+    @ObservedObject var updater = UpdateManager.shared
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 6, style: .continuous)
+                        .fill(isAvailable ? Color.blue.gradient : Color.secondary.opacity(0.14).gradient)
+                    if isBusy {
+                        ProgressView()
+                            .controlSize(.mini)
+                            .tint(isAvailable ? .white : .secondary)
+                    } else {
+                        Image(systemName: icon)
+                            .font(.system(size: 10.5, weight: .semibold))
+                            .foregroundStyle(isAvailable ? .white : .secondary)
+                    }
+                }
+                .frame(width: 22, height: 22)
+                Text(title)
+                    .font(.system(size: 11.5, weight: isAvailable ? .semibold : .regular))
+                    .foregroundStyle(isAvailable ? Color.blue : Color.secondary)
+                    .lineLimit(2)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 7, style: .continuous)
+                .fill(hovering ? Color.primary.opacity(0.05) : .clear))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(isBusy)
+        .help(helpText)
+        .onHover { hovering = $0 }
+    }
+
+    private var isAvailable: Bool {
+        updater.availableRelease != nil
+    }
+
+    private var isBusy: Bool {
+        switch updater.phase {
+        case .checking, .downloading, .installing: return true
+        default: return false
+        }
+    }
+
+    private var icon: String {
+        switch updater.phase {
+        case .upToDate: return "checkmark.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case .available: return "arrow.down.circle.fill"
+        default: return "arrow.triangle.2.circlepath"
+        }
+    }
+
+    private var title: String {
+        switch updater.phase {
+        case .checking: return tr("正在检查…")
+        case .upToDate: return tr("已是最新版本")
+        case .available:
+            return tr("更新到 %@", updater.availableRelease?.version ?? "")
+        case .downloading: return tr("正在下载…")
+        case .installing: return tr("正在安装…")
+        case .failed: return tr("更新失败，重试")
+        case .idle: return tr("检查更新…")
+        }
+    }
+
+    private var helpText: String {
+        if case .failed(let message) = updater.phase { return message }
+        return title
+    }
+
+    private func action() {
+        if updater.availableRelease != nil {
+            updater.installAvailableUpdate()
+        } else {
+            updater.checkForUpdates(manual: true)
+        }
     }
 }
 

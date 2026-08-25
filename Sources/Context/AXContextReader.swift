@@ -156,7 +156,7 @@ enum AXContextReader {
         var ref: CFTypeRef?
         guard AXUIElementCopyAttributeValue(app, kAXFocusedWindowAttribute as CFString, &ref) == .success,
               let any = ref, CFGetTypeID(any) == AXUIElementGetTypeID() else { return nil }
-        return any as! AXUIElement
+        return (any as! AXUIElement)
     }
 
     private static func frontWindowTitle(pid: pid_t) -> String? {

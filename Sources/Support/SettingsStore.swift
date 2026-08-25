@@ -248,6 +248,17 @@ final class SettingsStore: ObservableObject {
         defaults.removeObject(forKey: "panelOrigin")
     }
 
+    // MARK: - 更新提示
+
+    /// 用户关闭过的升级气泡版本；设置页里的手动更新按钮不受影响。
+    var dismissedUpdateVersion: String? {
+        defaults.string(forKey: "dismissedUpdateVersion")
+    }
+
+    func dismissUpdate(version: String) {
+        defaults.set(version, forKey: "dismissedUpdateVersion")
+    }
+
     /// 应用由 com.openvoiceinput.app 改名 com.openvoice.app 后,
     /// UserDefaults 域随 Bundle ID 变化,首次启动把旧设置整体搬过来
     private static func migrateLegacyDefaultsIfNeeded(into defaults: UserDefaults) {

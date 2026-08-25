@@ -71,6 +71,16 @@
         }
       }
     },
+    "GitHub Release 格式无效": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The GitHub Release is invalid"
+          }
+        }
+      }
+    },
     "Italian": {
       "localizations": {
         "en": {
@@ -147,6 +157,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "OpenAI returned an unparseable response."
+          }
+        }
+      }
+    },
+    "OpenVoice %@ 可以更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenVoice %@ is available"
           }
         }
       }
@@ -451,6 +471,16 @@
         }
       }
     },
+    "升级": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update"
+          }
+        }
+      }
+    },
     "历史": {
       "localizations": {
         "en": {
@@ -687,6 +717,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Granted"
+          }
+        }
+      }
+    },
+    "已是最新版本": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to Date"
           }
         }
       }
@@ -941,6 +981,16 @@
         }
       }
     },
+    "无法连接 GitHub，请稍后重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not reach GitHub. Try again later."
+          }
+        }
+      }
+    },
     "无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。": {
       "localizations": {
         "en": {
@@ -1001,6 +1051,76 @@
         }
       }
     },
+    "更新下载不完整，请重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The update download is incomplete. Try again."
+          }
+        }
+      }
+    },
+    "更新到 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update to %@"
+          }
+        }
+      }
+    },
+    "更新包处理失败，请重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The update package could not be processed. Try again."
+          }
+        }
+      }
+    },
+    "更新失败": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update failed"
+          }
+        }
+      }
+    },
+    "更新失败，重试": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update Failed — Retry"
+          }
+        }
+      }
+    },
+    "更新失败：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update failed: %@"
+          }
+        }
+      }
+    },
+    "更新签名或版本校验失败，已停止安装": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The update failed signature or version verification and was not installed"
+          }
+        }
+      }
+    },
     "最近一次请求详情": {
       "localizations": {
         "en": {
@@ -1027,6 +1147,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Not Granted"
+          }
+        }
+      }
+    },
+    "未获得安装权限，更新已取消": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installation permission was not granted. The update was cancelled."
           }
         }
       }
@@ -1091,6 +1221,16 @@
         }
       }
     },
+    "检查更新…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check for Updates…"
+          }
+        }
+      }
+    },
     "模型回复": {
       "localizations": {
         "en": {
@@ -1107,6 +1247,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Welcome to OpenVoice"
+          }
+        }
+      }
+    },
+    "正在下载…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Downloading…"
+          }
+        }
+      }
+    },
+    "正在安装…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Installing…"
+          }
+        }
+      }
+    },
+    "正在检查…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Checking…"
           }
         }
       }
@@ -1531,6 +1701,16 @@
         }
       }
     },
+    "请先把 OpenVoice 移到“应用程序”文件夹，再进行更新": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move OpenVoice to Applications before updating"
+          }
+        }
+      }
+    },
     "请求": {
       "localizations": {
         "en": {
@@ -1657,6 +1837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No transcriptions yet"
+          }
+        }
+      }
+    },
+    "这个 Release 没有 OpenVoice DMG": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This Release does not contain an OpenVoice DMG"
           }
         }
       }
