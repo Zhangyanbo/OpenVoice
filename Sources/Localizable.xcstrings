@@ -371,6 +371,16 @@
         }
       }
     },
+    "光标附近与页面中的文字": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text near the cursor and elsewhere in the page"
+          }
+        }
+      }
+    },
     "全选": {
       "localizations": {
         "en": {

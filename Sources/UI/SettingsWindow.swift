@@ -394,7 +394,8 @@ private struct PrivacyPane: View {
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }
                 CardDivider()
-                SettingsRow(title: tr("读取光标附近文字")) {
+                SettingsRow(title: tr("读取光标附近文字"),
+                            subtitle: tr("光标附近与页面中的文字")) {
                     Toggle("", isOn: $settings.readNearbyText)
                         .toggleStyle(.switch).controlSize(.small).labelsHidden()
                 }

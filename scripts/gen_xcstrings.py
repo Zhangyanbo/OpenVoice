@@ -61,6 +61,7 @@ PAIRS = {
     "使用当前 App 上下文": "Use Current App Context",
     "App 名称与窗口标题": "App name and window title",
     "读取光标附近文字": "Read Text Near Cursor",
+    "光标附近与页面中的文字": "Text near the cursor and elsewhere in the page",
     "读取选中文字": "Read Selected Text",
     "本应用不截图、不 OCR、不申请屏幕录制权限、不记录键盘输入。除录音音频与上方选择的上下文外，API Key、术语表、设置与历史记录全部只保存在这台 Mac 上。":
         "This app never takes screenshots, never runs OCR, never requests screen-recording permission, and never logs keystrokes. Apart from the recorded audio and the context selected above, the API key, glossary, settings, and history are stored only on this Mac.",

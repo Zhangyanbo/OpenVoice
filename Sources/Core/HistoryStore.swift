@@ -23,6 +23,7 @@ final class HistoryStore: ObservableObject {
         var contextSelected: String?
         var contextBefore: String?
         var contextAfter: String?
+        var contextDocument: String?
     }
 
     struct Entry: Codable, Identifiable {

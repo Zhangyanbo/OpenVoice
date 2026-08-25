@@ -81,12 +81,15 @@ struct OpenAIClient {
 
     /// 整理/翻译请求。用 Structured Outputs 强制模型只输出 {"text": "..."},
     /// 从 schema 层面保证不会混入解释、引号等转录内容之外的东西。
-    func chat(model: String, system: String, user: String) async throws -> String {
-        var request = URLRequest(url: base.appendingPathComponent("chat/completions"))
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let payload: [String: Any] = [
+    ///
+    /// 成本闸门:
+    /// - reasoning_effort 固定 minimal——推理模型不传时默认 medium,
+    ///   思考 token 隐藏计费,对听写这种轻任务纯属浪费;
+    /// - max_completion_tokens 按转录长度估算上限(含思考 token)。
+    /// 非推理模型不认识 reasoning_effort 会返回 400,此时去掉该参数重试一次。
+    /// - Parameter transcript: 原始转录文本,用于估算输出上限
+    func chat(model: String, system: String, user: String, transcript: String) async throws -> String {
+        var payload: [String: Any] = [
             "model": model,
             "messages": [
                 ["role": "system", "content": system],
@@ -110,7 +113,22 @@ struct OpenAIClient {
                     ],
                 ],
             ],
+            "max_completion_tokens": Self.outputTokenCeiling(forTranscript: transcript),
+            "reasoning_effort": "minimal",
         ]
+        do {
+            return try await sendChat(payload: payload)
+        } catch ClientError.http(let code, let message) where code == 400 && message.contains("reasoning_effort") {
+            payload.removeValue(forKey: "reasoning_effort")
+            return try await sendChat(payload: payload)
+        }
+    }
+
+    private func sendChat(payload: [String: Any]) async throws -> String {
+        var request = URLRequest(url: base.appendingPathComponent("chat/completions"))
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         let (data, response) = try await session.data(for: request)
@@ -128,6 +146,21 @@ struct OpenAIClient {
             return text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// 输出 token 上限估算:CJK 约 1 token/字,其余约 4 字符/token。
+    /// 3 倍余量覆盖翻译膨胀、列表化改写;+256 覆盖 JSON 结构与 minimal 档的少量思考 token
+    static func outputTokenCeiling(forTranscript text: String) -> Int {
+        var cjk = 0, other = 0
+        for scalar in text.unicodeScalars {
+            switch scalar.value {
+            case 0x2E80...0x9FFF, 0x3040...0x30FF, 0xAC00...0xD7AF, 0xF900...0xFAFF:
+                cjk += 1
+            default:
+                other += 1
+            }
+        }
+        return max(512, (cjk + (other + 3) / 4) * 3 + 256)
     }
 
     private static func checkHTTP(data: Data, response: URLResponse) throws {

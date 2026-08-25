@@ -333,6 +333,7 @@ final class DictationController {
         info.contextSelected = context.selectedText
         info.contextBefore = context.beforeCursor
         info.contextAfter = context.afterCursor
+        info.contextDocument = context.documentText
         return info
     }
 
@@ -345,7 +346,8 @@ final class DictationController {
             windowTitle: retry.contextWindow,
             selectedText: retry.contextSelected,
             beforeCursor: retry.contextBefore,
-            afterCursor: retry.contextAfter)
+            afterCursor: retry.contextAfter,
+            documentText: retry.contextDocument)
         return context.isEmpty ? nil : context
     }
 
@@ -500,6 +502,7 @@ final class DictationController {
             - 删除“呃”“嗯”等填充词、无意义重复；用户说话中途自我纠正时，只保留纠正后的内容。
             - 补全标点、修正大小写、规范数字与列表格式。
             - 保持用户的原意、语气和用词。只修正语音表达带来的噪声，绝不替用户重新写作或扩写。
+            - 语音转录可能包含识别错误（如同音字、相似读音的词、专有名词拼写）。依据上下文与术语表，把确有把握的识别错误改回正确写法；把握不足时保留转录原样，不要臆测改写。这条修正不受编辑力度高低的影响——它是恢复用户真正说出的内容，不是改写。
             - 输出语言与用户说话的语言一致。
             - 以 JSON 输出，最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。
             """)
@@ -515,6 +518,7 @@ final class DictationController {
             - 不要逐字机器翻译，直接生成自然、地道的\(target)表达。
             - 保持原意、人名、专有名词、技术术语、数字、格式和语气。
             - 删除“呃”“嗯”等填充词和无意义重复；用户自我纠正时只保留纠正后的内容。
+            - 语音转录可能包含识别错误（如同音字、相似读音的词、专有名词拼写）。依据上下文与术语表，把确有把握的识别错误改回正确写法后再翻译；把握不足时按转录原样翻译，不要臆测改写。
             - 以 JSON 输出，翻译后的最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。
             """)
         }
@@ -566,7 +570,8 @@ final class DictationController {
             if let selected = context.selectedText { contextLines.append("当前选中的文字：「\(selected)」") }
             if let before = context.beforeCursor { contextLines.append("光标前的文字：…\(before)") }
             if let after = context.afterCursor { contextLines.append("光标后的文字：\(after)…") }
-            lines.append("上下文（仅供判断语言、风格、术语拼写，不要在输出中重复它）：\n" + contextLines.joined(separator: "\n"))
+            if let doc = context.documentText { contextLines.append("页面/文档中的其他内容（背景参考）：\n\(doc)") }
+            lines.append("上下文（用于判断语言、风格、术语拼写，以及把确有把握的识别错误改回正确写法；不要在输出中重复它）：\n" + contextLines.joined(separator: "\n"))
         }
         lines.append("语音转录结果：\n\(transcript)")
         return lines.joined(separator: "\n\n")
