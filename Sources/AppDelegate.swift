@@ -1,7 +1,7 @@
 import AppKit
 import Combine
 
-/// 菜单栏应用(LSUIElement,无 Dock 图标)。
+/// 菜单栏应用；设置窗口打开时临时显示 Dock 图标。
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var statusItem: NSStatusItem!
     private let hotkeys = HotkeyManager()
@@ -51,6 +51,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if SettingsStore.shared.onboardingDone && !Permissions.accessibilityGranted {
             Permissions.promptAccessibility()
         }
+    }
+
+    /// 用户点击 Dock 图标（包括设置窗口已最小化时），始终显示设置界面。
+    func applicationShouldHandleReopen(_ sender: NSApplication,
+                                       hasVisibleWindows flag: Bool) -> Bool {
+        SettingsWindowController.shared.show()
+        return true
     }
 
     // MARK: - 主菜单

@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 /// 设置窗口:左侧图标侧边栏 + 右侧卡片式分区。
 /// 视觉语言与悬浮条一致:克制、现代、低噪。
-final class SettingsWindowController {
+final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let shared = SettingsWindowController()
     private var window: NSWindow?
     private let nav = SettingsNav()
@@ -50,6 +50,8 @@ final class SettingsWindowController {
     }
 
     func show(tab: Tab? = nil) {
+        // 平时是菜单栏 App；设置窗口出现期间切为普通 App，让 Dock 显示图标。
+        NSApp.setActivationPolicy(.regular)
         if window == nil {
             let content = SettingsRootView(nav: nav)
             let hosting = NSHostingController(rootView: content)
@@ -60,12 +62,19 @@ final class SettingsWindowController {
             window.titleVisibility = .hidden
             window.setContentSize(NSSize(width: 720, height: 520))
             window.isReleasedWhenClosed = false
+            window.delegate = self
             window.center()
             self.window = window
         }
         if let tab { nav.tab = tab }
         NSApp.activate(ignoringOtherApps: true)
+        window?.deminiaturize(nil)
         window?.makeKeyAndOrderFront(nil)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        // 只收起设置窗口与 Dock 图标；应用和菜单栏状态项继续运行。
+        NSApp.setActivationPolicy(.accessory)
     }
 }
 
