@@ -232,12 +232,10 @@ final class SettingsStore: ObservableObject {
         modelProviders = Self.loadCodable([ModelProvider].self, from: defaults, key: "modelProviders")
             ?? [provider]
         transcriptionModels = Self.loadCodable([ConfiguredModel].self, from: defaults, key: "transcriptionModels")
-            ?? [
-                ConfiguredModel(id: "transcription-gpt-4o", providerID: provider.id,
-                                modelID: Self.defaultTranscribeModel, displayName: "GPT-4o transcribe"),
-                ConfiguredModel(id: "transcription-whisper", providerID: provider.id,
-                                modelID: "whisper-1", displayName: "whisper-1"),
-            ]
+            ?? provider.kind.defaultPresets(for: .transcription).enumerated().map { index, preset in
+                ConfiguredModel(id: "transcription-default-\(index)", providerID: provider.id,
+                                modelID: preset.id, displayName: preset.displayName)
+            }
         let previousLLM = defaults.string(forKey: "llmModel")?.trimmingCharacters(in: .whitespacesAndNewlines)
         let migratedLLM = (previousLLM?.isEmpty == false ? previousLLM : nil) ?? Self.defaultLLMModel
         languageModels = Self.loadCodable([ConfiguredModel].self, from: defaults, key: "languageModels")
@@ -255,6 +253,47 @@ final class SettingsStore: ObservableObject {
         modelProviders.append(provider)
         _ = KeychainStore.saveAPIKey(apiKey, providerID: provider.id)
         return provider
+    }
+
+    /// 欢迎引导只收集服务商与密钥；首启时由服务商自动提供默认模型链。
+    /// 已完成引导的用户重新打开单页配置时，不覆盖他们现有的模型排序。
+    func configureOnboardingProvider(kind: ModelProviderKind, apiKey: String) -> Bool {
+        let existing = modelProviders.first(where: { $0.kind == kind })
+        let provider: ModelProvider
+        if let existing {
+            provider = existing
+        } else {
+            provider = ModelProvider(id: UUID().uuidString, kind: kind, name: kind.displayName)
+        }
+        guard KeychainStore.saveAPIKey(apiKey, providerID: provider.id) else { return false }
+        if existing == nil { modelProviders.append(provider) }
+
+        if !onboardingDone {
+            modelProviders = [provider]
+            transcriptionModels = kind.defaultPresets(for: .transcription).enumerated().map { index, preset in
+                ConfiguredModel(id: "onboarding-transcription-\(index)", providerID: provider.id,
+                                modelID: preset.id, displayName: preset.displayName)
+            }
+            languageModels = kind.defaultPresets(for: .language).enumerated().map { index, preset in
+                ConfiguredModel(id: "onboarding-language-\(index)", providerID: provider.id,
+                                modelID: preset.id, displayName: preset.displayName)
+            }
+        } else {
+            // 单页引导也可用于给已完成首启的用户补一个新服务商。
+            if !transcriptionModels.contains(where: { $0.providerID == provider.id }) {
+                let defaults = kind.defaultPresets(for: .transcription).map {
+                    ConfiguredModel(providerID: provider.id, modelID: $0.id, displayName: $0.displayName)
+                }
+                transcriptionModels.insert(contentsOf: defaults, at: 0)
+            }
+            if !languageModels.contains(where: { $0.providerID == provider.id }) {
+                let defaults = kind.defaultPresets(for: .language).map {
+                    ConfiguredModel(providerID: provider.id, modelID: $0.id, displayName: $0.displayName)
+                }
+                languageModels.insert(contentsOf: defaults, at: 0)
+            }
+        }
+        return true
     }
 
     /// 删除服务商时同时删除引用它的模型，避免留下失效引用。

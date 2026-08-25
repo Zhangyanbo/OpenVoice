@@ -157,7 +157,7 @@ final class DictationController {
             if settings.onboardingDone {
                 SettingsWindowController.shared.show(tab: .models)
             } else {
-                OnboardingWindowController.shared.show(step: .apiKey)
+                OnboardingWindowController.shared.show(step: .provider)
             }
             return
         }

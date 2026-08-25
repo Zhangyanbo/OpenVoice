@@ -135,6 +135,8 @@ PAIRS = {
     "API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。":
         "API keys are stored only in the macOS Keychain. You don't need to choose a model when adding a provider.",
     "添加服务商": "Add Provider",
+    "添加 %@": "Add %@",
+    "验证并添加": "Validate && Add",
     "移除服务商": "Remove Provider",
     "是否删除服务商？": "Delete this provider?",
     "删除服务商": "Delete Provider",
@@ -228,10 +230,19 @@ PAIRS = {
         "Put your cursor anywhere, press Fn, speak, then press Fn again —\nthe text appears right there.",
     "无账号、无服务器。你的 OpenAI API Key 保存在本机钥匙串，\n音频直接从这台 Mac 发送给 OpenAI。":
         "No account, no server. Your OpenAI API key stays in the local Keychain;\naudio goes straight from this Mac to OpenAI.",
+    "无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。":
+        "No account and no intermediary server. Your API key stays in the local Keychain;\naudio goes straight from this Mac to the selected provider.",
     "设置 OpenAI API Key": "Set Up Your OpenAI API Key",
     "在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。":
         "Create one at platform.openai.com. Keys are kept only in the macOS Keychain — never written to config files, never logged.",
     "已从钥匙串读取到保存的 API Key": "Loaded your saved API key from the Keychain",
+    "已读取 %@ API Key": "Loaded the %@ API key",
+    "无法保存 API Key，请重试。": "Could not save the API key. Try again.",
+    "默认模型组合": "Default Model Set",
+    "语音识别：%@": "Transcription: %@",
+    "后处理：%@": "Post-processing: %@",
+    "完成引导后，可在「模型」设置中调整。":
+        "You can adjust these later under Models in Settings.",
     "更换…": "Replace…",
     "验证并保存": "Validate && Save",
     "如果系统弹出「访问钥匙串」的确认框，请选择「始终允许」，之后不会再询问。":

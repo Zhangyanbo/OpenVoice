@@ -2,7 +2,7 @@ import Foundation
 
 /// 服务商类型与具体账户实例分离：同一服务商可以添加多个密钥，
 /// 模型则通过 providerID 引用其中一个实例。
-enum ModelProviderKind: String, Codable, CaseIterable, Identifiable {
+enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case openAI
 
     var id: String { rawValue }
@@ -28,6 +28,24 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable {
                 ModelPreset(id: "gpt-4.1-nano", displayName: "gpt-4.1-nano"),
                 ModelPreset(id: "gpt-5.4-mini", displayName: "gpt-5.4-mini"),
             ]
+        }
+    }
+
+    /// 首次添加服务商时自动写入的模型组合。这与可选模型目录分开，
+    /// 新服务商（如 Gemini）必须各自定义，欢迎引导无需知道具体模型。
+    func defaultPresets(for capability: ModelCapability) -> [ModelPreset] {
+        switch (self, capability) {
+        case (.openAI, .transcription):
+            return Array(presets(for: capability).prefix(2))
+        case (.openAI, .language):
+            return Array(presets(for: capability).prefix(1))
+        }
+    }
+
+    var apiKeyHelp: String {
+        switch self {
+        case .openAI:
+            return tr("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
         }
     }
 }

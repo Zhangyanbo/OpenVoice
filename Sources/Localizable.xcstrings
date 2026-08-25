@@ -631,6 +631,16 @@
         }
       }
     },
+    "后处理：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Post-processing: %@"
+          }
+        }
+      }
+    },
     "在 GitHub 上提交 Issue": {
       "localizations": {
         "en": {
@@ -737,6 +747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Done"
+          }
+        }
+      }
+    },
+    "完成引导后，可在「模型」设置中调整。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can adjust these later under Models in Settings."
           }
         }
       }
@@ -887,6 +907,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Up to Date"
+          }
+        }
+      }
+    },
+    "已读取 %@ API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loaded the %@ API key"
           }
         }
       }
@@ -1171,6 +1201,16 @@
         }
       }
     },
+    "无法保存 API Key，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not save the API key. Try again."
+          }
+        }
+      }
+    },
     "无法初始化音频转换。": {
       "localizations": {
         "en": {
@@ -1207,6 +1247,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Could not reach GitHub. Try again later."
+          }
+        }
+      }
+    },
+    "无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No account and no intermediary server. Your API key stays in the local Keychain;\naudio goes straight from this Mac to the selected provider."
           }
         }
       }
@@ -1681,6 +1731,16 @@
         }
       }
     },
+    "添加 %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add %@"
+          }
+        }
+      }
+    },
     "添加服务商": {
       "localizations": {
         "en": {
@@ -2041,6 +2101,16 @@
         }
       }
     },
+    "语音识别：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcription: %@"
+          }
+        }
+      }
+    },
     "语音输入": {
       "localizations": {
         "en": {
@@ -2371,6 +2441,16 @@
         }
       }
     },
+    "验证并添加": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Validate && Add"
+          }
+        }
+      }
+    },
     "高": {
       "localizations": {
         "en": {
@@ -2397,6 +2477,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The default models are the current recommendations; no changes needed for everyday use. Your API key is stored only in the macOS Keychain."
+          }
+        }
+      }
+    },
+    "默认模型组合": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Default Model Set"
           }
         }
       }
