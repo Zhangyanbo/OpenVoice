@@ -627,7 +627,11 @@ private struct ModelsPane: View {
                          footer: tr("API Key 只保存在 macOS 钥匙串中。添加服务商时无需选择模型。")) {
                 ForEach(Array(settings.modelProviders.enumerated()), id: \.element.id) { index, provider in
                     if index > 0 { CardDivider() }
-                    SettingsRow(title: provider.name, subtitle: provider.kind.displayName) {
+                    HStack(spacing: 10) {
+                        ProviderIcon(kind: provider.kind, size: 26)
+                        Text(provider.name)
+                            .font(.system(size: 13))
+                        Spacer(minLength: 12)
                         HStack(spacing: 9) {
                             Text(KeychainStore.loadAPIKey(providerID: provider.id) == nil ? tr("未设置") : "•••••••••••")
                                 .font(.system(size: 11, design: .monospaced))
@@ -644,6 +648,8 @@ private struct ModelsPane: View {
                             .help(tr("移除服务商"))
                         }
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 9)
                 }
                 CardDivider()
                 Button {
@@ -728,6 +734,7 @@ private struct ModelsPane: View {
                 if index > 0 { CardDivider() }
                 ModelPriorityRow(index: index, model: model,
                                  provider: settings.modelProviders.first { $0.id == model.providerID },
+                                 capability: capability,
                                  count: models.count,
                                  moveUp: { move(capability, from: index, offset: -1) },
                                  moveDown: { move(capability, from: index, offset: 1) },
@@ -786,6 +793,7 @@ private struct ModelPriorityRow: View {
     let index: Int
     let model: ConfiguredModel
     let provider: ModelProvider?
+    let capability: ModelCapability
     let count: Int
     let moveUp: () -> Void
     let moveDown: () -> Void
@@ -800,10 +808,18 @@ private struct ModelPriorityRow: View {
                 .background(Color.secondary.opacity(0.12), in: Circle())
             VStack(alignment: .leading, spacing: 2) {
                 Text(model.displayName).font(.system(size: 13))
-                Text(provider?.name ?? tr("服务商已移除"))
-                    .font(.system(size: 11)).foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    Text(provider?.name ?? tr("服务商已移除"))
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 8)
+                    if let pricingSummary {
+                        Text(pricingSummary)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .font(.system(size: 11))
             }
-            Spacer()
+            .frame(maxWidth: .infinity, alignment: .leading)
             HStack(spacing: 5) {
                 Button(action: moveUp) { Image(systemName: "chevron.up") }
                     .disabled(index == 0).help(tr("上移"))
@@ -819,6 +835,10 @@ private struct ModelPriorityRow: View {
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
     }
+
+    private var pricingSummary: String? {
+        provider?.kind.pricingSummary(for: model.modelID, capability: capability)
+    }
 }
 
 private struct ProviderKeySheet: View {
@@ -831,17 +851,38 @@ private struct ProviderKeySheet: View {
     @State private var errorText = ""
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 18) {
             Text(provider == nil ? tr("添加服务商") : tr("修改 API Key"))
                 .font(.system(size: 18, weight: .semibold))
-            Picker(tr("服务商"), selection: $kind) {
-                ForEach(ModelProviderKind.allCases) { item in
-                    Text(item.displayName).tag(item)
+
+            if provider == nil {
+                HStack(spacing: 12) {
+                    ForEach(ModelProviderKind.allCases) { item in
+                        providerCard(item)
+                    }
+                }
+            } else {
+                HStack(spacing: 9) {
+                    ProviderIcon(kind: kind, size: 28)
+                    Text(kind.displayName)
+                        .font(.system(size: 14, weight: .semibold))
                 }
             }
-            .disabled(provider != nil)
-            SecureField(tr("API Key(sk-…)"), text: $key)
+
+            Text(kind.introduction)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 2)
+
+            SecureField(tr("API Key"), text: $key)
                 .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(kind.apiKeyHelp)
+                    .foregroundStyle(.secondary)
+                Link(tr("获取 API Key"), destination: kind.apiKeyURL)
+            }
+            .font(.system(size: 11))
             if !errorText.isEmpty {
                 Text(errorText).font(.system(size: 11)).foregroundStyle(.red)
             }
@@ -855,8 +896,40 @@ private struct ProviderKeySheet: View {
             }
         }
         .padding(22)
-        .frame(width: 400)
+        .frame(width: 480)
         .onAppear { if let provider { kind = provider.kind } }
+    }
+
+    private func providerCard(_ item: ModelProviderKind) -> some View {
+        let selected = kind == item
+        return Button {
+            if kind != item {
+                kind = item
+                key = ""
+                errorText = ""
+            }
+        } label: {
+            HStack(spacing: 10) {
+                ProviderIcon(kind: item, size: 28)
+                Text(item.displayName)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary)
+                Spacer(minLength: 0)
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(selected ? Color.accentColor : Color.secondary.opacity(0.45))
+            }
+            .padding(.horizontal, 13)
+            .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+            .background(selected ? Color.accentColor.opacity(0.08)
+                                  : Color(nsColor: .controlBackgroundColor),
+                        in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
+                .strokeBorder(selected ? Color.accentColor.opacity(0.65)
+                                       : Color.primary.opacity(0.08),
+                              lineWidth: selected ? 1.5 : 1))
+        }
+        .buttonStyle(.plain)
     }
 
     private func validate() {
@@ -867,6 +940,7 @@ private struct ProviderKeySheet: View {
             do {
                 switch kind {
                 case .openAI: try await OpenAIClient(apiKey: candidate).validateKey()
+                case .google: try await GeminiClient(apiKey: candidate).validateKey()
                 }
                 await MainActor.run {
                     onSave(kind, candidate)
@@ -902,6 +976,12 @@ private struct AddModelSheet: View {
             }
             Picker(tr("模型"), selection: $modelID) {
                 ForEach(presets) { preset in Text(preset.displayName).tag(preset.id) }
+            }
+            if let provider,
+               let pricing = provider.kind.pricingSummary(for: modelID, capability: capability) {
+                Text(pricing)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
             }
             HStack {
                 Spacer()

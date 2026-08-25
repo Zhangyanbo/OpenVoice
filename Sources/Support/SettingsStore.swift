@@ -258,6 +258,9 @@ final class SettingsStore: ObservableObject {
     /// 欢迎引导只收集服务商与密钥；首启时由服务商自动提供默认模型链。
     /// 已完成引导的用户重新打开单页配置时，不覆盖他们现有的模型排序。
     func configureOnboardingProvider(kind: ModelProviderKind, apiKey: String) -> Bool {
+        let configuredProviderIDs = Set(modelProviders.compactMap { provider in
+            KeychainStore.loadAPIKey(providerID: provider.id) == nil ? nil : provider.id
+        })
         let existing = modelProviders.first(where: { $0.kind == kind })
         let provider: ModelProvider
         if let existing {
@@ -269,31 +272,47 @@ final class SettingsStore: ObservableObject {
         if existing == nil { modelProviders.append(provider) }
 
         if !onboardingDone {
-            modelProviders = [provider]
-            transcriptionModels = kind.defaultPresets(for: .transcription).enumerated().map { index, preset in
-                ConfiguredModel(id: "onboarding-transcription-\(index)", providerID: provider.id,
-                                modelID: preset.id, displayName: preset.displayName)
+            // 初始的 OpenAI 服务商只是迁移占位；若用户先选 Google，去掉没有
+            // Key 的占位项。之后继续添加另一家时保留第一家的优先顺序。
+            modelProviders = modelProviders.filter {
+                $0.id == provider.id || KeychainStore.loadAPIKey(providerID: $0.id) != nil
             }
-            languageModels = kind.defaultPresets(for: .language).enumerated().map { index, preset in
-                ConfiguredModel(id: "onboarding-language-\(index)", providerID: provider.id,
-                                modelID: preset.id, displayName: preset.displayName)
+            if configuredProviderIDs.isEmpty {
+                transcriptionModels = Self.configuredDefaults(
+                    kind: kind, capability: .transcription, providerID: provider.id,
+                    idPrefix: "onboarding-transcription")
+                languageModels = Self.configuredDefaults(
+                    kind: kind, capability: .language, providerID: provider.id,
+                    idPrefix: "onboarding-language")
+            } else {
+                appendDefaultModelsIfNeeded(kind: kind, providerID: provider.id)
             }
         } else {
             // 单页引导也可用于给已完成首启的用户补一个新服务商。
-            if !transcriptionModels.contains(where: { $0.providerID == provider.id }) {
-                let defaults = kind.defaultPresets(for: .transcription).map {
-                    ConfiguredModel(providerID: provider.id, modelID: $0.id, displayName: $0.displayName)
-                }
-                transcriptionModels.insert(contentsOf: defaults, at: 0)
-            }
-            if !languageModels.contains(where: { $0.providerID == provider.id }) {
-                let defaults = kind.defaultPresets(for: .language).map {
-                    ConfiguredModel(providerID: provider.id, modelID: $0.id, displayName: $0.displayName)
-                }
-                languageModels.insert(contentsOf: defaults, at: 0)
-            }
+            appendDefaultModelsIfNeeded(kind: kind, providerID: provider.id)
         }
         return true
+    }
+
+    private func appendDefaultModelsIfNeeded(kind: ModelProviderKind, providerID: String) {
+        if !transcriptionModels.contains(where: { $0.providerID == providerID }) {
+            transcriptionModels.append(contentsOf: Self.configuredDefaults(
+                kind: kind, capability: .transcription, providerID: providerID))
+        }
+        if !languageModels.contains(where: { $0.providerID == providerID }) {
+            languageModels.append(contentsOf: Self.configuredDefaults(
+                kind: kind, capability: .language, providerID: providerID))
+        }
+    }
+
+    private static func configuredDefaults(kind: ModelProviderKind, capability: ModelCapability,
+                                           providerID: String, idPrefix: String? = nil) -> [ConfiguredModel] {
+        kind.defaultPresets(for: capability).enumerated().map { index, preset in
+            ConfiguredModel(id: idPrefix.map { "\($0)-\(index)" } ?? UUID().uuidString,
+                            providerID: providerID,
+                            modelID: preset.id,
+                            displayName: preset.displayName)
+        }
     }
 
     /// 删除服务商时同时删除引用它的模型，避免留下失效引用。

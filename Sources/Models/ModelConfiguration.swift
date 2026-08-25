@@ -4,12 +4,14 @@ import Foundation
 /// 模型则通过 providerID 引用其中一个实例。
 enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case openAI
+    case google
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .openAI: return "OpenAI"
+        case .google: return "Google"
         }
     }
 
@@ -28,6 +30,17 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
                 ModelPreset(id: "gpt-4.1-nano", displayName: "gpt-4.1-nano"),
                 ModelPreset(id: "gpt-5.4-mini", displayName: "gpt-5.4-mini"),
             ]
+        case (.google, .transcription):
+            return [
+                ModelPreset(id: "gemini-3.5-flash-lite", displayName: "Gemini 3.5 Flash-Lite"),
+                ModelPreset(id: "gemini-3.6-flash", displayName: "Gemini 3.6 Flash"),
+            ]
+        case (.google, .language):
+            return [
+                ModelPreset(id: "gemini-3.5-flash-lite", displayName: "Gemini 3.5 Flash-Lite"),
+                ModelPreset(id: "gemini-3.6-flash", displayName: "Gemini 3.6 Flash"),
+                ModelPreset(id: "gemini-3.7-flash", displayName: "Gemini 3.7 Flash"),
+            ]
         }
     }
 
@@ -39,6 +52,9 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return Array(presets(for: capability).prefix(2))
         case (.openAI, .language):
             return Array(presets(for: capability).prefix(1))
+        case (.google, .transcription), (.google, .language):
+            // Flash-Lite 先处理低成本轻任务，较强的 Flash 只在失败时兜底。
+            return Array(presets(for: capability).prefix(2))
         }
     }
 
@@ -46,6 +62,58 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         switch self {
         case .openAI:
             return tr("在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
+        case .google:
+            return tr("在 Google AI Studio 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
+        }
+    }
+
+    var apiKeyURL: URL {
+        switch self {
+        case .openAI:
+            return URL(string: "https://platform.openai.com/api-keys")!
+        case .google:
+            return URL(string: "https://aistudio.google.com/api-keys")!
+        }
+    }
+
+    var introduction: String {
+        switch self {
+        case .openAI:
+            return tr("提供专用语音识别模型和 GPT 语言模型，转录准确、稳定。")
+        case .google:
+            return tr("使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。")
+        }
+    }
+
+    /// 设置界面只显示服务商的标准 API 价。转录按实际计费口径展示：
+    /// OpenAI 使用官方分钟估价；Gemini 依照 32 audio tokens/s 换算输入成本。
+    func pricingSummary(for modelID: String, capability: ModelCapability) -> String? {
+        switch (self, capability, modelID) {
+        case (.openAI, .transcription, "gpt-4o-transcribe"),
+             (.openAI, .transcription, "whisper-1"):
+            return tr("$%@/千分钟", "6.00")
+        case (.openAI, .transcription, "gpt-4o-mini-transcribe"):
+            return tr("$%@/千分钟", "3.00")
+        case (.google, .transcription, "gemini-3.5-flash-lite"):
+            return tr("$%@/千分钟", "0.58")
+        case (.google, .transcription, "gemini-3.6-flash"):
+            return tr("$%@/千分钟", "1.44")
+
+        case (.openAI, .language, "gpt-5.6-luna"):
+            return tr("输入 $%@ · 输出 $%@/百万 token", "0.20", "1.20")
+        case (.openAI, .language, "gpt-5-nano"):
+            return tr("输入 $%@ · 输出 $%@/百万 token", "0.05", "0.40")
+        case (.openAI, .language, "gpt-4.1-nano"):
+            return tr("输入 $%@ · 输出 $%@/百万 token", "0.10", "0.40")
+        case (.openAI, .language, "gpt-5.4-mini"):
+            return tr("输入 $%@ · 输出 $%@/百万 token", "0.75", "4.50")
+        case (.google, .language, "gemini-3.5-flash-lite"):
+            return tr("输入 $%@ · 输出 $%@/百万 token", "0.30", "2.50")
+        case (.google, .language, "gemini-3.6-flash"),
+             (.google, .language, "gemini-3.7-flash"):
+            return tr("输入 $%@ · 输出 $%@/百万 token", "0.75", "3.75")
+        default:
+            return nil
         }
     }
 }

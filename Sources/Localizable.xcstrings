@@ -1,6 +1,16 @@
 {
   "sourceLanguage": "zh-Hans",
   "strings": {
+    "$%@/千分钟": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "$%@/1,000 min"
+          }
+        }
+      }
+    },
     "%@ + 左 Shift": {
       "localizations": {
         "en": {
@@ -27,6 +37,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "%@ could not validate this API key."
+          }
+        }
+      }
+    },
+    "API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "API Key"
           }
         }
       }
@@ -107,6 +127,56 @@
           "stringUnit": {
             "state": "translated",
             "value": "The GitHub Release is invalid"
+          }
+        }
+      }
+    },
+    "Google Gemini 请求失败（%lld）：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Gemini request failed (%lld): %@"
+          }
+        }
+      }
+    },
+    "Google Gemini 返回了无法解析的结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Gemini returned an unparseable response."
+          }
+        }
+      }
+    },
+    "Google Gemini 额度不足或请求过于频繁，请稍后重试或检查账单与配额。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google Gemini quota is exhausted or requests are too frequent. Try again later or check billing and quotas."
+          }
+        }
+      }
+    },
+    "Google 处理音频超时，请重试。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google timed out while processing the audio. Try again."
+          }
+        }
+      }
+    },
+    "Google 无法验证这个 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Google could not validate this API key."
           }
         }
       }
@@ -367,6 +437,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Low"
+          }
+        }
+      }
+    },
+    "使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uses Gemini multimodal models for transcription and post-processing, balancing cost, speed, and multilingual support."
           }
         }
       }
@@ -651,6 +731,16 @@
         }
       }
     },
+    "在 Google AI Studio 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create one in Google AI Studio. Keys are kept only in the macOS Keychain — never written to config files, never logged."
+          }
+        }
+      }
+    },
     "在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。": {
       "localizations": {
         "en": {
@@ -787,6 +877,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "This will delete the API key for %@ and remove models that use this provider. The API key cannot be recovered after deletion."
+          }
+        }
+      }
+    },
+    "尚未设置 Google API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No Google API key is set."
           }
         }
       }
@@ -1117,6 +1217,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Controls how the output text is organized. Low keeps the natural paragraphs of your speech without any added structure; Medium uses simple bullets or numbering when the content suits listing; High organizes content with a full hierarchy of section headings and bullet points."
+          }
+        }
+      }
+    },
+    "提供专用语音识别模型和 GPT 语言模型，转录准确、稳定。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Offers dedicated speech recognition models and GPT language models for accurate, reliable transcription."
           }
         }
       }
@@ -1991,6 +2101,16 @@
         }
       }
     },
+    "获取 API Key": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get an API Key"
+          }
+        }
+      }
+    },
     "西班牙语": {
       "localizations": {
         "en": {
@@ -2227,6 +2347,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "The transcript was empty, so the original entry was left unchanged."
+          }
+        }
+      }
+    },
+    "输入 $%@ · 输出 $%@/百万 token": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Input $%@ · output $%@/1M tokens"
           }
         }
       }

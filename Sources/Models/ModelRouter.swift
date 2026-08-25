@@ -117,10 +117,14 @@ enum ModelRouter {
 
     private static func makeClient(for provider: ModelProvider) throws -> any ModelProviderClient {
         guard let key = KeychainStore.loadAPIKey(providerID: provider.id) else {
-            throw OpenAIClient.ClientError.noAPIKey
+            switch provider.kind {
+            case .openAI: throw OpenAIClient.ClientError.noAPIKey
+            case .google: throw GeminiClient.ClientError.noAPIKey
+            }
         }
         switch provider.kind {
         case .openAI: return OpenAIClient(apiKey: key)
+        case .google: return GeminiClient(apiKey: key)
         }
     }
 }

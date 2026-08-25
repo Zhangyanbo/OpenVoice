@@ -129,13 +129,14 @@ private struct OnboardingView: View {
                             if !configured { editingProviderKind = kind }
                         } label: {
                             HStack(spacing: 10) {
-                                Image(systemName: configured ? "checkmark.circle.fill" : "plus.circle.fill")
-                                    .font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(configured ? Color.green : Color.accentColor)
+                                ProviderIcon(kind: kind, size: 30)
                                 Text(configured ? kind.displayName : tr("添加 %@", kind.displayName))
                                     .font(.system(size: 13, weight: .medium))
                                     .foregroundStyle(.primary)
                                 Spacer(minLength: 0)
+                                Image(systemName: configured ? "checkmark.circle.fill" : "plus.circle.fill")
+                                    .font(.system(size: 17, weight: .semibold))
+                                    .foregroundStyle(configured ? Color.green : Color.accentColor)
                             }
                             .padding(.horizontal, 14)
                             .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
@@ -272,10 +273,19 @@ private struct OnboardingProviderKeySheet: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text(tr("添加 %@", kind.displayName))
-                .font(.system(size: 18, weight: .semibold))
-            SecureField("API Key", text: $keyInput)
+            HStack(spacing: 10) {
+                ProviderIcon(kind: kind, size: 30)
+                Text(tr("添加 %@", kind.displayName))
+                    .font(.system(size: 18, weight: .semibold))
+            }
+            SecureField(tr("API Key"), text: $keyInput)
                 .textFieldStyle(.roundedBorder)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(kind.apiKeyHelp)
+                    .foregroundStyle(.secondary)
+                Link(tr("获取 API Key"), destination: kind.apiKeyURL)
+            }
+            .font(.system(size: 11))
             if !status.isEmpty {
                 Text(status)
                     .font(.system(size: 11))
@@ -301,6 +311,7 @@ private struct OnboardingProviderKeySheet: View {
             do {
                 switch kind {
                 case .openAI: try await OpenAIClient(apiKey: key).validateKey()
+                case .google: try await GeminiClient(apiKey: key).validateKey()
                 }
                 await MainActor.run {
                     guard settings.configureOnboardingProvider(kind: kind, apiKey: key) else {

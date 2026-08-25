@@ -233,8 +233,18 @@ PAIRS = {
     "无账号、无中间服务器。API Key 只保存在本机钥匙串，\n音频直接从这台 Mac 发送给所选服务商。":
         "No account and no intermediary server. Your API key stays in the local Keychain;\naudio goes straight from this Mac to the selected provider.",
     "设置 OpenAI API Key": "Set Up Your OpenAI API Key",
+    "API Key": "API Key",
+    "获取 API Key": "Get an API Key",
+    "$%@/千分钟": "$%@/1,000 min",
+    "输入 $%@ · 输出 $%@/百万 token": "Input $%@ · output $%@/1M tokens",
     "在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。":
         "Create one at platform.openai.com. Keys are kept only in the macOS Keychain — never written to config files, never logged.",
+    "在 Google AI Studio 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。":
+        "Create one in Google AI Studio. Keys are kept only in the macOS Keychain — never written to config files, never logged.",
+    "提供专用语音识别模型和 GPT 语言模型，转录准确、稳定。":
+        "Offers dedicated speech recognition models and GPT language models for accurate, reliable transcription.",
+    "使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。":
+        "Uses Gemini multimodal models for transcription and post-processing, balancing cost, speed, and multilingual support.",
     "已从钥匙串读取到保存的 API Key": "Loaded your saved API key from the Keychain",
     "已读取 %@ API Key": "Loaded the %@ API key",
     "无法保存 API Key，请重试。": "Could not save the API key. Try again.",
@@ -300,6 +310,13 @@ PAIRS = {
     "尚未设置 OpenAI API Key。": "No OpenAI API key is set.",
     "OpenAI 返回了无法解析的结果。": "OpenAI returned an unparseable response.",
     "OpenAI 请求失败（%lld）：%@": "OpenAI request failed (%lld): %@",
+    "尚未设置 Google API Key。": "No Google API key is set.",
+    "Google 无法验证这个 API Key。": "Google could not validate this API key.",
+    "Google Gemini 请求失败（%lld）：%@": "Google Gemini request failed (%lld): %@",
+    "Google Gemini 返回了无法解析的结果。": "Google Gemini returned an unparseable response.",
+    "Google 处理音频超时，请重试。": "Google timed out while processing the audio. Try again.",
+    "Google Gemini 额度不足或请求过于频繁，请稍后重试或检查账单与配额。":
+        "Google Gemini quota is exhausted or requests are too frequent. Try again later or check billing and quotas.",
     "没有可用的录音设备。": "No audio input device available.",
     "无法初始化音频转换。": "Could not initialize audio conversion.",
     "OpenAI 账户余额/额度不足。请到 platform.openai.com → Billing 充值。":
