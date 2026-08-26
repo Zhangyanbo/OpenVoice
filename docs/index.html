@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OpenVoice — macOS 语音输入法</title>
-<meta name="description" content="光标放到任意地方 → 按 Fn → 说话 → 再按 Fn → 文字直接出现。可选云端模型服务商或本地 Ollama。" />
+<meta name="description" content="一款开源的 macOS 语音输入法。" />
 <link rel="icon" type="image/png" href="icon_design.png" />
 <script>
   // 语言自动检测:优先使用用户上次的选择;否则中文浏览器留在本页,
@@ -132,37 +132,6 @@
   .hero .cta { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
   .cta-note { margin-top: 18px; font-size: 13px; color: var(--fg-faint); }
 
-  /* ---------- flow ---------- */
-  .flow {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px 14px;
-    margin: 88px auto 0;
-    max-width: 900px;
-    font-size: 15px;
-  }
-  .step {
-    background: var(--pill-bg);
-    border-radius: 999px;
-    padding: 8px 18px;
-    color: var(--fg-soft);
-    white-space: nowrap;
-  }
-  .key {
-    display: inline-block;
-    border: 1px solid var(--line);
-    border-bottom-width: 2px;
-    border-radius: 7px;
-    padding: 1px 9px;
-    font-size: 13px;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    color: var(--fg);
-    background: var(--card);
-  }
-  .arrow { color: var(--fg-faint); }
-
   /* ---------- sections ---------- */
   section { padding: 88px 0; }
   section + section { border-top: 1px solid var(--line); }
@@ -249,10 +218,7 @@
   <div class="hero">
     <img src="icon_design.png" alt="OpenVoice 图标" />
     <h1>「言出法随」</h1>
-    <p class="tagline">
-      一款开源的 macOS 菜单栏语音输入法。无账号、无服务器——
-      云端请求直接发往所选服务商，本地 Ollama 则完全留在这台 Mac 上。
-    </p>
+    <p class="tagline">一款开源的 macOS 语音输入法</p>
     <div class="cta">
       <a class="btn btn-primary btn-lg" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">
         下载 macOS 版
@@ -261,17 +227,7 @@
         查看文档
       </a>
     </div>
-    <p class="cta-note">macOS 15+ · 免费（非商业用途）· 云端服务商或本地 Ollama</p>
-
-    <div class="flow">
-      <span class="step"><span class="key">Fn</span> 开始录音</span>
-      <span class="arrow">→</span>
-      <span class="step">说话</span>
-      <span class="arrow">→</span>
-      <span class="step"><span class="key">Fn</span> 停止</span>
-      <span class="arrow">→</span>
-      <span class="step">文字出现在光标处</span>
-    </div>
+    <p class="cta-note">macOS 15+ · 免费（非商业用途）</p>
   </div>
 
   <div class="wrap">

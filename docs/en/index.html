@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OpenVoice — Voice input for macOS</title>
-<meta name="description" content="Put your cursor anywhere → press Fn → speak → press Fn again → text appears. Choose your cloud model provider or local Ollama." />
+<meta name="description" content="An open-source voice input app for macOS." />
 <link rel="icon" type="image/png" href="../icon_design.png" />
 <script>
   // Language auto-detection: honor saved preference; otherwise route
@@ -132,37 +132,6 @@
   .hero .cta { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
   .cta-note { margin-top: 18px; font-size: 13px; color: var(--fg-faint); }
 
-  /* ---------- flow ---------- */
-  .flow {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px 14px;
-    margin: 88px auto 0;
-    max-width: 900px;
-    font-size: 15px;
-  }
-  .step {
-    background: var(--pill-bg);
-    border-radius: 999px;
-    padding: 8px 18px;
-    color: var(--fg-soft);
-    white-space: nowrap;
-  }
-  .key {
-    display: inline-block;
-    border: 1px solid var(--line);
-    border-bottom-width: 2px;
-    border-radius: 7px;
-    padding: 1px 9px;
-    font-size: 13px;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
-    color: var(--fg);
-    background: var(--card);
-  }
-  .arrow { color: var(--fg-faint); }
-
   /* ---------- sections ---------- */
   section { padding: 88px 0; }
   section + section { border-top: 1px solid var(--line); }
@@ -249,10 +218,7 @@
   <div class="hero">
     <img src="../icon_design.png" alt="OpenVoice icon" />
     <h1>Speak, and it&rsquo;s written.</h1>
-    <p class="tagline">
-      An open-source menu bar voice input app for macOS. No account, no server —
-      cloud requests go directly to your selected provider, and local Ollama stays entirely on your Mac.
-    </p>
+    <p class="tagline">An open-source voice input app for macOS</p>
     <div class="cta">
       <a class="btn btn-primary btn-lg" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">
         Download for macOS
@@ -261,17 +227,7 @@
         Documentation
       </a>
     </div>
-    <p class="cta-note">macOS 15+ · Free for non-commercial use · Cloud providers or local Ollama</p>
-
-    <div class="flow">
-      <span class="step"><span class="key">Fn</span> start recording</span>
-      <span class="arrow">→</span>
-      <span class="step">speak</span>
-      <span class="arrow">→</span>
-      <span class="step"><span class="key">Fn</span> stop</span>
-      <span class="arrow">→</span>
-      <span class="step">text appears at the cursor</span>
-    </div>
+    <p class="cta-note">macOS 15+ · Free for non-commercial use</p>
   </div>
 
   <div class="wrap">
