@@ -80,3 +80,13 @@ targets:
         # 图标生成脚本要读 icon/ 写入 app 包,不能开脚本沙箱
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_STRICT_CONCURRENCY: minimal
+  OpenVoiceTests:
+    type: bundle.unit-test
+    platform: macOS
+    dependencies:
+      - target: OpenVoice
+    sources:
+      - Tests
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
