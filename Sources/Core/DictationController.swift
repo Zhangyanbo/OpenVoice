@@ -273,6 +273,7 @@ final class DictationController {
         let providers = settings.modelProviders
         let transcriptionModels = settings.transcriptionModels
         let languageModels = settings.languageModels
+        let requestTimeoutSeconds = settings.modelRequestTimeoutSeconds
 
         // 请求详情只在 Debug 开启时记录,关闭后不保留任何请求痕迹
         let debug = settings.debugMode
@@ -293,7 +294,10 @@ final class DictationController {
                     models: transcriptionModels,
                     providers: providers,
                     prompt: termHint.isEmpty ? nil : termHint,
-                    language: recognitionLanguage)
+                    language: recognitionLanguage,
+                    onFallback: {
+                        await Self.animatePanelFallback(for: .transcription)
+                    })
                 modelAttempts.append(contentsOf: transcription.attempts)
                 let raw = transcription.text
                 guard !raw.isEmpty else {
@@ -301,7 +305,7 @@ final class DictationController {
                     return
                 }
                 if debug { LastRequestLog.shared.transcript = raw }
-                await MainActor.run { self.panel.showPostProcessing() }
+                await Self.advancePanelToPostProcessing(timeoutSeconds: requestTimeoutSeconds)
                 let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
                                                effort: settings.editingEffort,
                                                format: settings.formatLevel)
@@ -319,7 +323,10 @@ final class DictationController {
                         providers: providers,
                         system: system,
                         user: user,
-                        transcript: raw)
+                        transcript: raw,
+                        onFallback: {
+                            await Self.animatePanelFallback(for: .language)
+                        })
                     modelAttempts.append(contentsOf: processing.attempts)
                     final = processing.text
                     if debug { LastRequestLog.shared.response = final }
@@ -340,6 +347,7 @@ final class DictationController {
                         }
                         return
                     }
+                    await Self.animatePanelFallback(for: .language)
                     let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     detailMessage = tr("后处理失败，已保留原始转录：%@", reason)
                     NSLog("整理模型失败，使用原始转录：\(error.localizedDescription)")
@@ -361,6 +369,35 @@ final class DictationController {
                                              modelAttempts: attemptsSnapshot)
                 }
             }
+        }
+    }
+
+    /// 模型路由在发起下一次请求前等待胶囊完成一次回退。
+    /// 这使网络尝试与视觉进度保持相同的先后顺序。
+    private static func animatePanelFallback(for capability: ModelCapability) async {
+        let timing = await MainActor.run {
+            FloatingPanelController.shared.beginModelFallback(for: capability)
+        }
+        guard let timing else { return }
+        try? await Task.sleep(nanoseconds: UInt64(timing.preFlash * 1_000_000_000))
+        await MainActor.run {
+            FloatingPanelController.shared.retreatModelFallback(for: capability)
+        }
+        try? await Task.sleep(nanoseconds: UInt64((timing.retreat + timing.hold) * 1_000_000_000))
+        await MainActor.run {
+            FloatingPanelController.shared.resumeAfterModelFallback(for: capability)
+        }
+    }
+
+    private static func advancePanelToPostProcessing(timeoutSeconds: Int) async {
+        let duration = await MainActor.run {
+            FloatingPanelController.shared.showTranscriptionComplete()
+        }
+        if duration > 0 {
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+        }
+        await MainActor.run {
+            FloatingPanelController.shared.showPostProcessing(timeoutSeconds: timeoutSeconds)
         }
     }
 

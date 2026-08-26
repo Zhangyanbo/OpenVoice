@@ -54,9 +54,11 @@ enum ModelRouter {
         models: [ConfiguredModel],
         providers: [ModelProvider],
         prompt: String?,
-        language: String?
+        language: String?,
+        onFallback: (() async -> Void)? = nil
     ) async throws -> ModelExecutionResult {
-        try await run(models: models, providers: providers, capability: .transcription) { client, model in
+        try await run(models: models, providers: providers, capability: .transcription,
+                      onFallback: onFallback) { client, model in
             try await client.transcribe(wav: wav, model: model.modelID, prompt: prompt, language: language)
         }
     }
@@ -66,9 +68,11 @@ enum ModelRouter {
         providers: [ModelProvider],
         system: String,
         user: String,
-        transcript: String
+        transcript: String,
+        onFallback: (() async -> Void)? = nil
     ) async throws -> ModelExecutionResult {
-        try await run(models: models, providers: providers, capability: .language) { client, model in
+        try await run(models: models, providers: providers, capability: .language,
+                      onFallback: onFallback) { client, model in
             try await client.chat(model: model.modelID, system: system, user: user, transcript: transcript)
         }
     }
@@ -77,6 +81,7 @@ enum ModelRouter {
         models: [ConfiguredModel],
         providers: [ModelProvider],
         capability: ModelCapability,
+        onFallback: (() async -> Void)?,
         operation: @escaping (any ModelProviderClient, ConfiguredModel) async throws -> String
     ) async throws -> ModelExecutionResult {
         guard !models.isEmpty else { throw RouterError.noModels(capability) }
@@ -85,11 +90,13 @@ enum ModelRouter {
         var lastReason = tr("没有可用的模型来源或 API Key。")
         var attempts: [ModelAttempt] = []
 
-        for model in models {
+        for (index, model) in models.enumerated() {
+            let hasNextModel = index + 1 < models.count
             guard let provider = providers.first(where: { $0.id == model.providerID }) else {
                 lastReason = tr("模型 %@ 引用的来源不存在。", model.displayName)
                 attempts.append(attempt(model: model, providerName: tr("模型来源已移除"),
                                         capability: capability, succeeded: false, reason: lastReason))
+                if hasNextModel { await onFallback?() }
                 continue
             }
             guard !provider.kind.requiresAPIKey
@@ -97,6 +104,7 @@ enum ModelRouter {
                 lastReason = tr("%@ 尚未设置 API Key。", provider.name)
                 attempts.append(attempt(model: model, providerName: provider.name,
                                         capability: capability, succeeded: false, reason: lastReason))
+                if hasNextModel { await onFallback?() }
                 continue
             }
 
@@ -126,6 +134,7 @@ enum ModelRouter {
                                         capability: capability, succeeded: false, reason: lastReason))
                 NSLog("模型 %@（%@）请求失败，尝试下一个：%@",
                       model.modelID, provider.kind.rawValue, lastReason)
+                if hasNextModel { await onFallback?() }
             }
         }
 

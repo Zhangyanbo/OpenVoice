@@ -19,8 +19,10 @@ final class PanelModel: ObservableObject {
     @Published var countdownSeconds: Int?
     /// 录音阶段连续进度（0...1），由核心状态机的 10 分钟上限计算。
     @Published var recordingProgress: Double = 0
-    /// 请求阶段的离散进度：转录开始 0、转录完成 0.5、后处理完成 1。
+    /// 处理阶段唯一的真实进度值；界面不再从另一条时间轴推算显示值。
     @Published var processingProgress: Double = 0
+    @Published var fallbackFlash = false
+    @Published var processingComplete = false
     /// 非空表示翻译模式:(当前目标语言, 可选语言列表)
     @Published var translation: (current: String, options: [String])?
 
@@ -50,6 +52,12 @@ final class PanelModel: ObservableObject {
 final class FloatingPanelController: NSObject, NSWindowDelegate {
     static let shared = FloatingPanelController()
 
+    struct FallbackTiming {
+        let preFlash: TimeInterval
+        let retreat: TimeInterval
+        let hold: TimeInterval
+    }
+
     private var panel: NSPanel?
     private var hostView: NSHostingView<RecordingBarView>?
     private let model = PanelModel()
@@ -57,6 +65,13 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     /// 拖动持久化与程序化摆放会同时触发 windowDidMove,区分之
     private var programmaticMove = false
     private var completionHideWorkItem: DispatchWorkItem?
+    private var activeCapability: ModelCapability?
+    private var activeRequestTimeout: TimeInterval = 30
+    private var progressTimer: Timer?
+    private let progressTickInterval: TimeInterval = 1.0 / 20.0
+    private let progressSnapDuration: TimeInterval = 0.24
+    private let fallbackPreFlashDuration: TimeInterval = 0.12
+    private let fallbackHoldDuration: TimeInterval = 0.12
 
     var onCancel: (() -> Void)? {
         get { model.onCancel }
@@ -85,11 +100,15 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     func showListening(translation: (String, [String])?) {
         cancelCompletionHide()
+        stopProgressDriver()
         model.phase = .listening
         model.resetLevels()
         model.countdownSeconds = nil
         model.recordingProgress = 0
         model.processingProgress = 0
+        model.fallbackFlash = false
+        model.processingComplete = false
+        activeCapability = nil
         model.translation = translation.map { (current: $0.0, options: $0.1) }
         show()
     }
@@ -102,23 +121,79 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         model.recordingProgress = min(1, max(0, progress))
     }
 
-    func showTranscribing() {
+    func showTranscribing(timeoutSeconds: Int? = nil) {
         cancelCompletionHide()
+        activeRequestTimeout = TimeInterval(timeoutSeconds ?? settings.modelRequestTimeoutSeconds)
         model.phase = .transcribing
         model.processingProgress = 0
+        model.fallbackFlash = false
+        model.processingComplete = false
+        activeCapability = .transcription
+        startProgressDriver(for: .transcription)
         show()
     }
 
-    func showPostProcessing() {
+    /// 转录成功时停止计时，并从屏幕当前的真实值快速补到 50%。
+    func showTranscriptionComplete() -> TimeInterval {
+        guard activeCapability == .transcription else { return 0 }
+        stopProgressDriver()
+        withAnimation(.easeOut(duration: progressSnapDuration)) {
+            model.processingProgress = 0.5
+        }
+        return progressSnapDuration
+    }
+
+    func showPostProcessing(timeoutSeconds: Int? = nil) {
+        activeRequestTimeout = TimeInterval(timeoutSeconds ?? settings.modelRequestTimeoutSeconds)
+        activeCapability = .language
         model.phase = .processing
         model.processingProgress = 0.5
+        model.fallbackFlash = false
+        model.processingComplete = false
+        startProgressDriver(for: .language)
         show()
+    }
+
+    /// fallback 分成明确的三步。路由器会等待三步完成，再发起下一个模型请求。
+    func beginModelFallback(for capability: ModelCapability) -> FallbackTiming? {
+        guard activeCapability == capability else { return nil }
+        stopProgressDriver()
+        if capability == .language { model.phase = .processing }
+        withAnimation(.easeOut(duration: 0.08)) {
+            model.fallbackFlash = true
+        }
+        return FallbackTiming(preFlash: fallbackPreFlashDuration,
+                              retreat: progressSnapDuration,
+                              hold: fallbackHoldDuration)
+    }
+
+    func retreatModelFallback(for capability: ModelCapability) {
+        guard activeCapability == capability else { return }
+        let stageStart = capability == .transcription ? 0.0 : 0.5
+        withAnimation(.easeOut(duration: progressSnapDuration)) {
+            model.processingProgress = stageStart
+        }
+    }
+
+    /// 回退已经真正到达阶段起点后，恢复颜色并从起点开始下一轮。
+    func resumeAfterModelFallback(for capability: ModelCapability) {
+        guard activeCapability == capability else { return }
+        withAnimation(.easeOut(duration: 0.1)) {
+            model.fallbackFlash = false
+        }
+        startProgressDriver(for: capability)
     }
 
     /// 让 100% 填充有足够时间完成原生动画，然后再淡出；文字插入无需等待。
     func showProcessingComplete() {
+        stopProgressDriver()
+        activeCapability = nil
         model.phase = .processing
-        model.processingProgress = 1
+        model.fallbackFlash = false
+        withAnimation(.easeOut(duration: progressSnapDuration)) {
+            model.processingProgress = 1
+        }
+        model.processingComplete = true
         completionHideWorkItem?.cancel()
         let work = DispatchWorkItem { [weak self] in self?.hide() }
         completionHideWorkItem = work
@@ -127,15 +202,25 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     func showError(_ message: String) {
         cancelCompletionHide()
+        stopProgressDriver()
         model.phase = .error(message)
+        model.processingProgress = 0
+        model.fallbackFlash = false
+        model.processingComplete = false
+        activeCapability = nil
         show()
     }
 
     func showUpdate(version: String) {
         cancelCompletionHide()
+        stopProgressDriver()
         model.phase = .update(version)
+        model.processingProgress = 0
+        model.fallbackFlash = false
+        model.processingComplete = false
         model.countdownSeconds = nil
         model.translation = nil
+        activeCapability = nil
         show()
     }
 
@@ -145,6 +230,8 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     func hide() {
         cancelCompletionHide()
+        stopProgressDriver()
+        activeCapability = nil
         guard let panel, panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.18
@@ -158,6 +245,45 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     private func cancelCompletionHide() {
         completionHideWorkItem?.cancel()
         completionHideWorkItem = nil
+    }
+
+    /// 每个模型尝试都从阶段起点重新计时。前半段在较短时间内走完，
+    /// 后半段使用该模型完整 timeout 的剩余时间缓慢推进。
+    private func startProgressDriver(for capability: ModelCapability) {
+        stopProgressDriver()
+        let stageStart = capability == .transcription ? 0.0 : 0.5
+        let stageEnd = capability == .transcription ? 0.5 : 1.0
+        let timeout = max(0.2, activeRequestTimeout)
+        let fastDuration = min(3.0, max(0.6, timeout * 0.1))
+        let startedAt = Date()
+
+        model.processingProgress = stageStart
+        let timer = Timer(timeInterval: progressTickInterval, repeats: true) { [weak self] timer in
+            guard let self, self.activeCapability == capability else {
+                timer.invalidate()
+                return
+            }
+            let elapsed = Date().timeIntervalSince(startedAt)
+            let stageFraction: Double
+            if elapsed <= fastDuration {
+                stageFraction = 0.5 * min(1, elapsed / fastDuration)
+            } else {
+                let slowDuration = max(0.001, timeout - fastDuration)
+                stageFraction = 0.5 + 0.5 * min(1, (elapsed - fastDuration) / slowDuration)
+            }
+            let progress = stageStart + (stageEnd - stageStart) * stageFraction
+            withAnimation(.linear(duration: self.progressTickInterval)) {
+                self.model.processingProgress = progress
+            }
+            if elapsed >= timeout { timer.invalidate() }
+        }
+        progressTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+
+    private func stopProgressDriver() {
+        progressTimer?.invalidate()
+        progressTimer = nil
     }
 
     private func show() {
@@ -284,12 +410,11 @@ struct RecordingBarView: View {
 
     var body: some View {
         Group {
-            switch model.phase {
-            case .listening: listening
-            case .transcribing: transcribing
-            case .processing: processing
-            case .error(let message): errorView(message)
-            case .update(let version): updateView(version)
+            if model.usesStableWidth {
+                phaseContent
+                    .frame(width: 104, alignment: .center)
+            } else {
+                phaseContent
             }
         }
         .padding(.horizontal, 16)
@@ -301,12 +426,7 @@ struct RecordingBarView: View {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
                     .fill(pillBaseColor)
                 GeometryReader { proxy in
-                    HStack(spacing: 0) {
-                        Rectangle()
-                            .fill(progressColor)
-                            .frame(width: proxy.size.width * model.visualProgress)
-                        Spacer(minLength: 0)
-                    }
+                    progressLayer(size: proxy.size)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
             }
@@ -332,8 +452,34 @@ struct RecordingBarView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.18), value: model.phaseKey)
         .animation(.linear(duration: 0.5), value: model.recordingProgress)
-        .animation(.easeInOut(duration: 0.32), value: model.processingProgress)
         .animation(.easeInOut(duration: 0.3), value: model.isRecordingWarning)
+    }
+
+    @ViewBuilder private var phaseContent: some View {
+        switch model.phase {
+        case .listening: listening
+        case .transcribing: transcribing
+        case .processing: processing
+        case .error(let message): errorView(message)
+        case .update(let version): updateView(version)
+        }
+    }
+
+    @ViewBuilder private func progressLayer(size: CGSize) -> some View {
+        switch model.phase {
+        case .listening:
+            Rectangle()
+                .fill(recordingProgressColor)
+                .frame(width: size.width * model.recordingProgress, height: size.height)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .transcribing, .processing:
+            Rectangle()
+                .fill(processingProgressColor)
+                .frame(width: size.width * model.processingProgress, height: size.height)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        case .error, .update:
+            EmptyView()
+        }
     }
 
     private var listening: some View {
@@ -361,7 +507,7 @@ struct RecordingBarView: View {
     }
 
     private var processing: some View {
-        let complete = model.processingProgress >= 1
+        let complete = model.processingComplete
         return processingStatus(label: complete ? tr("处理完成") : tr("正在处理…"),
                                 complete: complete)
     }
@@ -391,15 +537,19 @@ struct RecordingBarView: View {
         return Color.black.opacity(0.45)
     }
 
-    private var progressColor: Color {
+    private var recordingProgressColor: Color {
         if model.isRecordingWarning {
             return Color(red: 1.0, green: 0.38, blue: 0.13).opacity(0.30)
         }
-        if model.isProcessingPhase {
-            return Color(red: 0.42, green: 0.58, blue: 0.76).opacity(0.22)
-        }
         // 前九分钟只用很弱的明度差，让胶囊仍接近原来的深灰色。
         return Color.white.opacity(0.065)
+    }
+
+    private var processingProgressColor: Color {
+        if model.fallbackFlash {
+            return Color(red: 0.96, green: 0.18, blue: 0.16).opacity(0.42)
+        }
+        return Color(red: 0.42, green: 0.58, blue: 0.76).opacity(0.22)
     }
 
     private var languageMenu: some View {
@@ -518,11 +668,10 @@ extension PanelModel {
         }
     }
 
-    var visualProgress: Double {
+    var usesStableWidth: Bool {
         switch phase {
-        case .listening: return recordingProgress
-        case .transcribing, .processing: return processingProgress
-        case .error, .update: return 0
+        case .transcribing, .processing: return true
+        case .listening, .error, .update: return false
         }
     }
 }
