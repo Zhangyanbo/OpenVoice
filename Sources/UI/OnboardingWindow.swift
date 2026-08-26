@@ -336,6 +336,9 @@ private struct OnboardingProviderKeySheet: View {
                 case .openAI: try await OpenAIClient(apiKey: key).validateKey()
                 case .google: try await GeminiClient(apiKey: key).validateKey()
                 case .ollama: break
+                case .openCodeZen, .openCodeGo:
+                    try await OpenCodeClient(providerID: "onboarding-validation",
+                                             kind: kind, apiKey: key).validateKey()
                 }
                 await MainActor.run {
                     guard settings.configureOnboardingProvider(kind: kind, apiKey: key) else {
@@ -344,6 +347,7 @@ private struct OnboardingProviderKeySheet: View {
                         return
                     }
                     validating = false
+                    OpenCodeModelCatalog.shared.refreshConfiguredProviders(force: true)
                     onAdded()
                     dismiss()
                 }

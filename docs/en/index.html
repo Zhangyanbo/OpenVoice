@@ -4,7 +4,7 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>OpenVoice — Voice input for macOS</title>
-<meta name="description" content="Put your cursor anywhere → press Fn → speak → press Fn again → text appears. No account, no server — use your own OpenAI API key." />
+<meta name="description" content="Put your cursor anywhere → press Fn → speak → press Fn again → text appears. Choose your cloud model provider or local Ollama." />
 <link rel="icon" type="image/png" href="../icon_design.png" />
 <script>
   // Language auto-detection: honor saved preference; otherwise route
@@ -251,7 +251,7 @@
     <h1>Speak, and it&rsquo;s written.</h1>
     <p class="tagline">
       An open-source menu bar voice input app for macOS. No account, no server —
-      audio goes straight from your Mac to OpenAI, everything else stays on your machine.
+      cloud requests go directly to your selected provider, and local Ollama stays entirely on your Mac.
     </p>
     <div class="cta">
       <a class="btn btn-primary btn-lg" href="https://github.com/Zhangyanbo/OpenVoice/releases/latest">
@@ -261,7 +261,7 @@
         Documentation
       </a>
     </div>
-    <p class="cta-note">macOS 14+ · Free for non-commercial use · Bring your own OpenAI API Key</p>
+    <p class="cta-note">macOS 14+ · Free for non-commercial use · Cloud providers or local Ollama</p>
 
     <div class="flow">
       <span class="step"><span class="key">Fn</span> start recording</span>
@@ -315,9 +315,9 @@
     <section id="privacy">
       <h2>Privacy</h2>
       <p class="section-sub">
-        OpenVoice has no central server and no account system. Apart from the audio and a small
-        amount of text context sent when calling the OpenAI API, everything else — your API key,
-        glossary, settings, and history — stays on this Mac.
+        OpenVoice has no central server and no account system. Cloud requests send only the current
+        audio and a small amount of text context directly to your selected provider. API keys,
+        glossary, settings, and history stay on this Mac; Ollama requests remain local.
         Context features can be turned off under Settings → Privacy.
       </p>
     </section>

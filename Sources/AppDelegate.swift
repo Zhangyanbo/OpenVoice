@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var cancellables = Set<AnyCancellable>()
     private var pendingUpdateVersion: String?
     private var updatePromptTimer: Timer?
+    private var modelCatalogTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SettingsStore.shared.applyAppearance()
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         setupHotkeys()
         setupAutoLearnToast()
         setupUpdates()
+        setupModelCatalogRefresh()
         startTapWatchdog()
 
         // 切换界面语言时重建所有原生菜单(SwiftUI 界面靠视图观察自动刷新,
@@ -50,6 +52,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // 已完成引导但权限尚未授予时,把 App 加入辅助功能列表提示用户
         if SettingsStore.shared.onboardingDone && !Permissions.accessibilityGranted {
             Permissions.promptAccessibility()
+        }
+    }
+
+    /// 与 OpenCode CLI 一致，启动时检查动态模型目录，并在 App 常驻期间
+    /// 每小时刷新。目录管理器自身有 5 分钟 TTL，重复打开设置不会刷爆接口。
+    private func setupModelCatalogRefresh() {
+        Task { @MainActor in
+            OpenCodeModelCatalog.shared.refreshConfiguredProviders()
+        }
+        modelCatalogTimer = Timer.scheduledTimer(withTimeInterval: 60 * 60, repeats: true) { _ in
+            Task { @MainActor in
+                OpenCodeModelCatalog.shared.refreshConfiguredProviders(force: true)
+            }
         }
     }
 

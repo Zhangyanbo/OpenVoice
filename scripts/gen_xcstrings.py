@@ -26,6 +26,10 @@ PAIRS = {
     "播放提示音": "Play Sounds",
     "录音开始与结束时": "When recording starts and ends",
     "显示语音悬浮条": "Show Floating Bar",
+    "单模型超时": "Per-Model Timeout",
+    "超过此时间没有返回时，自动尝试下一个模型":
+        "Automatically try the next model if no response arrives within this time",
+    "%lld 秒": "%lld sec",
     "过滤本机声音": "Filter Computer Audio",
     "开启后过滤电脑播放的声音，适合会议中同时使用": "Filters out audio played by this computer, ideal for use during meetings",
     "悬浮条可拖动，位置会被记住": "Draggable; its position is remembered",
@@ -130,6 +134,7 @@ PAIRS = {
     "设为默认": "Set as Default",
     "添加翻译语言，如：日语": "Add a translation language, e.g. Japanese",
     "添加": "Add",
+    "确定": "OK",
     # 模型来源与模型
     "模型来源": "Model Sources",
     "云端 API Key 只保存在 macOS 钥匙串中；本地来源无需密钥。添加来源时无需选择模型。":
@@ -149,6 +154,44 @@ PAIRS = {
     "语音识别成功后，按从上到下的顺序尝试整理或翻译。":
         "After transcription succeeds, models are tried from top to bottom for polishing or translation.",
     "添加模型": "Add Model",
+    "全部": "All",
+    "其他": "Other",
+    "免费": "Free",
+    "刷新模型目录": "Refresh Model Catalog",
+    "搜索模型名称或 ID": "Search model name or ID",
+    "支持语音": "Audio",
+    "没有匹配的模型": "No matching models",
+    "模型目录已更新：%@": "Model catalog updated: %@",
+    "OpenAI 兼容": "OpenAI Compatible",
+    "Responses API": "Responses API",
+    "Anthropic Messages": "Anthropic Messages",
+    "Gemini API": "Gemini API",
+    "OpenCode Zen 按量计费": "OpenCode Zen pay-as-you-go",
+    "OpenCode Go 订阅额度": "OpenCode Go subscription allowance",
+    "在 opencode.ai 获取。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。":
+        "Get it from opencode.ai. The key is stored only in the macOS Keychain, never in configuration files or logs.",
+    "按量使用 OpenCode 精选模型；模型目录会自动更新，并按各模型的原生协议分流。":
+        "Use OpenCode's curated models with pay-as-you-go billing. The catalog updates automatically and each model uses its native protocol.",
+    "使用 OpenCode Go 订阅额度；模型目录会自动更新，并在额度限制内按顺序回退。":
+        "Use your OpenCode Go subscription allowance. The catalog updates automatically and models fall back in order within usage limits.",
+    "尚未设置 OpenCode API Key。": "No OpenCode API key is configured.",
+    "OpenCode 无法验证这个 API Key。": "OpenCode could not validate this API key.",
+    "该模型会将输入与输出用于改进模型，需先在 OpenCode 明确同意：%@":
+        "This model uses inputs and outputs to improve the model. Explicit consent is required in OpenCode: %@",
+    "该模型会将输入与输出用于改进模型，需先在 OpenCode 账户中明确同意。":
+        "This model uses inputs and outputs to improve the model. Explicit consent is required in your OpenCode account.",
+    "该模型目前不支持你所在的地区。":
+        "This model is not currently available in your region.",
+    "模型 %@ 不支持语音输入。": "Model %@ does not support audio input.",
+    "OpenCode Go 已达到当前用量限制，请稍后重试或检查订阅额度。":
+        "OpenCode Go has reached the current usage limit. Try again later or check your subscription allowance.",
+    "OpenCode Zen 额度不足或请求过于频繁，请稍后重试或检查余额。":
+        "OpenCode Zen has insufficient credit or is rate limited. Try again later or check your balance.",
+    "OpenCode 请求失败（%lld）：%@": "OpenCode request failed (%lld): %@",
+    "OpenCode 返回了无法解析的结果。": "OpenCode returned an unparseable response.",
+    "OpenCode 返回了无法解析的模型目录。": "OpenCode returned an unparseable model catalog.",
+    "OpenCode 模型目录刷新失败（%lld）。": "OpenCode model catalog refresh failed (%lld).",
+    "OpenCode 当前没有返回可用模型。": "OpenCode returned no available models.",
     "模型来源已移除": "Model Source Removed",
     "上移": "Move Up",
     "下移": "Move Down",
@@ -163,6 +206,12 @@ PAIRS = {
         "All transcription models failed. Last error: %@",
     "所有语言模型均失败。最后一次错误：%@":
         "All language models failed. Last error: %@",
+    "模型 %@ 在 %lld 秒内没有返回，已切换到下一个。":
+        "Model %@ did not respond within %lld seconds; switched to the next model.",
+    "模型 %@ 没有返回文本，已切换到下一个。":
+        "Model %@ returned no text; switched to the next model.",
+    "模型 %@ 已被 OpenCode 停用，已切换到下一个。":
+        "Model %@ has been retired by OpenCode; switched to the next model.",
     "没有可用的模型来源或 API Key。": "No model source or API key is available.",
     "模型 %@ 引用的来源不存在。": "The source referenced by model %@ does not exist.",
     "%@ 尚未设置 API Key。": "%@ does not have an API key.",
@@ -252,6 +301,8 @@ PAIRS = {
     "正在聆听": "Listening",
     "剩余 %d:%02d": "%d:%02d left",
     "正在转录…": "Transcribing…",
+    "正在处理…": "Post-processing…",
+    "处理完成": "Processing Complete",
     "重试": "Retry",
     "关闭": "Close",
     # 引导

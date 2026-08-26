@@ -7,6 +7,7 @@ final class PanelModel: ObservableObject {
     enum Phase {
         case listening
         case transcribing
+        case processing
         case error(String)
         case update(String)
     }
@@ -16,6 +17,10 @@ final class PanelModel: ObservableObject {
     @Published var levels: [Float] = Array(repeating: 0, count: 5)
     /// 非空表示接近最长录音时长:显示剩余秒数倒计时
     @Published var countdownSeconds: Int?
+    /// 录音阶段连续进度（0...1），由核心状态机的 10 分钟上限计算。
+    @Published var recordingProgress: Double = 0
+    /// 请求阶段的离散进度：转录开始 0、转录完成 0.5、后处理完成 1。
+    @Published var processingProgress: Double = 0
     /// 非空表示翻译模式:(当前目标语言, 可选语言列表)
     @Published var translation: (current: String, options: [String])?
 
@@ -51,6 +56,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     private let settings = SettingsStore.shared
     /// 拖动持久化与程序化摆放会同时触发 windowDidMove,区分之
     private var programmaticMove = false
+    private var completionHideWorkItem: DispatchWorkItem?
 
     var onCancel: (() -> Void)? {
         get { model.onCancel }
@@ -78,9 +84,12 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     }
 
     func showListening(translation: (String, [String])?) {
+        cancelCompletionHide()
         model.phase = .listening
         model.resetLevels()
         model.countdownSeconds = nil
+        model.recordingProgress = 0
+        model.processingProgress = 0
         model.translation = translation.map { (current: $0.0, options: $0.1) }
         show()
     }
@@ -89,17 +98,41 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         model.countdownSeconds = seconds
     }
 
+    func updateRecordingProgress(_ progress: Double) {
+        model.recordingProgress = min(1, max(0, progress))
+    }
+
     func showTranscribing() {
+        cancelCompletionHide()
         model.phase = .transcribing
+        model.processingProgress = 0
         show()
     }
 
+    func showPostProcessing() {
+        model.phase = .processing
+        model.processingProgress = 0.5
+        show()
+    }
+
+    /// 让 100% 填充有足够时间完成原生动画，然后再淡出；文字插入无需等待。
+    func showProcessingComplete() {
+        model.phase = .processing
+        model.processingProgress = 1
+        completionHideWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.hide() }
+        completionHideWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.38, execute: work)
+    }
+
     func showError(_ message: String) {
+        cancelCompletionHide()
         model.phase = .error(message)
         show()
     }
 
     func showUpdate(version: String) {
+        cancelCompletionHide()
         model.phase = .update(version)
         model.countdownSeconds = nil
         model.translation = nil
@@ -111,6 +144,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     }
 
     func hide() {
+        cancelCompletionHide()
         guard let panel, panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.18
@@ -119,6 +153,11 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
             panel.orderOut(nil)
             panel.alphaValue = 1
         })
+    }
+
+    private func cancelCompletionHide() {
+        completionHideWorkItem?.cancel()
+        completionHideWorkItem = nil
     }
 
     private func show() {
@@ -248,6 +287,7 @@ struct RecordingBarView: View {
             switch model.phase {
             case .listening: listening
             case .transcribing: transcribing
+            case .processing: processing
             case .error(let message): errorView(message)
             case .update(let version): updateView(version)
             }
@@ -259,9 +299,16 @@ struct RecordingBarView: View {
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
                     .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 21, style: .continuous)
-                    .fill(model.isUpdate
-                          ? Color(red: 0.08, green: 0.36, blue: 0.86).opacity(0.88)
-                          : Color.black.opacity(0.45))
+                    .fill(pillBaseColor)
+                GeometryReader { proxy in
+                    HStack(spacing: 0) {
+                        Rectangle()
+                            .fill(progressColor)
+                            .frame(width: proxy.size.width * model.visualProgress)
+                        Spacer(minLength: 0)
+                    }
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 21, style: .continuous))
             }
         }
         .overlay {
@@ -284,6 +331,9 @@ struct RecordingBarView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .animation(.easeInOut(duration: 0.18), value: model.phaseKey)
+        .animation(.linear(duration: 0.5), value: model.recordingProgress)
+        .animation(.easeInOut(duration: 0.32), value: model.processingProgress)
+        .animation(.easeInOut(duration: 0.3), value: model.isRecordingWarning)
     }
 
     private var listening: some View {
@@ -291,10 +341,10 @@ struct RecordingBarView: View {
             PulsingDot()
             WaveformView(levels: model.levels)
             if let seconds = model.countdownSeconds {
-                // 接近最长录音时长:文案变为倒计时,琥珀色提醒
+                // 接近最长录音时长:文案变为倒计时，胶囊整体已进入橙红警示态。
                 Text(tr("剩余 %d:%02d", seconds / 60, seconds % 60))
                     .font(.system(size: 12.5, weight: .medium).monospacedDigit())
-                    .foregroundStyle(Color(red: 1.0, green: 0.76, blue: 0.35))
+                    .foregroundStyle(.white.opacity(0.92))
             } else {
                 Text(tr("正在聆听"))
                     .font(.system(size: 12.5, weight: .medium))
@@ -307,14 +357,49 @@ struct RecordingBarView: View {
     }
 
     private var transcribing: some View {
+        processingStatus(label: tr("正在转录…"), complete: false)
+    }
+
+    private var processing: some View {
+        let complete = model.processingProgress >= 1
+        return processingStatus(label: complete ? tr("处理完成") : tr("正在处理…"),
+                                complete: complete)
+    }
+
+    private func processingStatus(label: String, complete: Bool) -> some View {
         HStack(spacing: 9) {
-            ProgressView()
-                .controlSize(.small)
-                .tint(.white.opacity(0.8))
-            Text(tr("正在转录…"))
+            if complete {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.9))
+            } else {
+                ProgressView()
+                    .controlSize(.small)
+                    .tint(.white.opacity(0.8))
+            }
+            Text(label)
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
         }
+    }
+
+    private var pillBaseColor: Color {
+        if model.isUpdate { return Color(red: 0.08, green: 0.36, blue: 0.86).opacity(0.88) }
+        if model.isRecordingWarning {
+            return Color(red: 0.72, green: 0.17, blue: 0.08).opacity(0.88)
+        }
+        return Color.black.opacity(0.45)
+    }
+
+    private var progressColor: Color {
+        if model.isRecordingWarning {
+            return Color(red: 1.0, green: 0.38, blue: 0.13).opacity(0.30)
+        }
+        if model.isProcessingPhase {
+            return Color(red: 0.42, green: 0.58, blue: 0.76).opacity(0.22)
+        }
+        // 前九分钟只用很弱的明度差，让胶囊仍接近原来的深灰色。
+        return Color.white.opacity(0.065)
     }
 
     private var languageMenu: some View {
@@ -410,14 +495,35 @@ extension PanelModel {
         switch phase {
         case .listening: return 0
         case .transcribing: return 1
-        case .error: return 2
-        case .update: return 3
+        case .processing: return 2
+        case .error: return 3
+        case .update: return 4
         }
     }
 
     var isUpdate: Bool {
         if case .update = phase { return true }
         return false
+    }
+
+    var isRecordingWarning: Bool {
+        if case .listening = phase { return recordingProgress >= 0.9 }
+        return false
+    }
+
+    var isProcessingPhase: Bool {
+        switch phase {
+        case .transcribing, .processing: return true
+        default: return false
+        }
+    }
+
+    var visualProgress: Double {
+        switch phase {
+        case .listening: return recordingProgress
+        case .transcribing, .processing: return processingProgress
+        case .error, .update: return 0
+        }
     }
 }
 

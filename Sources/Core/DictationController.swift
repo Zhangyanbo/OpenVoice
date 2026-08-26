@@ -90,9 +90,9 @@ final class DictationController {
     private var session: (mode: Mode, context: DictationContext, target: InsertionTarget?)?
 
     // MARK: - 最长录音时长
-    private static let maxRecordingDuration: TimeInterval = 600
-    /// 剩余时间进入此窗口后,悬浮条的「正在聆听」变为倒计时
-    private static let countdownWarningWindow: TimeInterval = 60
+    private static let maxRecordingDuration: TimeInterval = 10 * 60
+    /// 最后 10% 进入警示态：10 分钟上限下即最后 1 分钟。
+    private static let countdownWarningWindow = maxRecordingDuration * 0.1
     private var recordingTimer: Timer?
     private var recordingStartedAt: Date?
 
@@ -226,6 +226,8 @@ final class DictationController {
             return
         }
         let remaining = Self.maxRecordingDuration - Date().timeIntervalSince(startedAt)
+        let elapsed = max(0, Self.maxRecordingDuration - remaining)
+        panel.updateRecordingProgress(elapsed / Self.maxRecordingDuration)
         if remaining <= 0 {
             // 到达最长时长,视同再按一次快捷键:正常结束并转录
             finish()
@@ -299,6 +301,7 @@ final class DictationController {
                     return
                 }
                 if debug { LastRequestLog.shared.transcript = raw }
+                await MainActor.run { self.panel.showPostProcessing() }
                 let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
                                                effort: settings.editingEffort,
                                                format: settings.formatLevel)
@@ -405,8 +408,8 @@ final class DictationController {
                                     failed: false, wav: wav, retry: retryInfo(for: mode, context: context),
                                     modelAttempts: modelAttempts, detailMessage: detailMessage)
         }
-        // 转录已结束,先收起悬浮条;粘贴路径的剪贴板恢复还要延迟一会儿,不必让用户等
-        panel.hide()
+        // 处理完成后让胶囊短暂展示 100%；文字插入本身无需等待动画。
+        panel.showProcessingComplete()
         TextInserter.insert(text, target: target) { result in
             switch result {
             case .inserted:

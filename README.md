@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  No account, no server — use your own OpenAI API Key. Audio goes straight<br/>
-  from your Mac to OpenAI; everything else (key, glossary, history) stays on your machine.
+  No account, no server — choose OpenAI, Google, OpenCode Zen/Go, or local Ollama.<br/>
+  Cloud requests go directly to the selected provider; keys, glossary, and history stay on your Mac.
 </p>
 
 ---
@@ -25,7 +25,7 @@
 
 A guided setup walks you through everything on first launch:
 
-1. **OpenAI API Key** — create one at [platform.openai.com](https://platform.openai.com) (the API is prepaid and requires a balance). The key is stored only in your Mac's Keychain;
+1. **Model source** — choose OpenAI, Google, OpenCode Zen/Go, or local Ollama. Cloud API keys are stored only in your Mac's Keychain; Ollama requires no key;
 2. **Microphone access** — used only while you are speaking;
 3. **Accessibility access** — required for the global hotkey and for writing text at the cursor position.
 
@@ -52,7 +52,7 @@ A few handy details:
 - **Context**: by default a small amount of text near the cursor is read to improve recognition; each item can be turned off individually under Settings → Privacy;
 - A single recording is capped at 10 minutes; during the last minute the floating bar shows a countdown, then transcribes automatically so nothing is lost.
 
-Cost reference: speech recognition runs about $0.006/min and text polishing is negligible — typical daily use costs less than a cup of coffee per month.
+Cost depends on the selected provider and model. OpenCode Go uses its subscription allowance, while Ollama runs locally without API charges.
 
 ## License
 

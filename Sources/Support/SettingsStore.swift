@@ -10,6 +10,10 @@ final class SettingsStore: ObservableObject {
 
     static let defaultTranscribeModel = "gpt-4o-transcribe"
     static let defaultLLMModel = "gpt-5.6-luna"
+    static let defaultModelRequestTimeoutSeconds = 30
+    static let modelRequestTimeoutOptions = [15, 30, 60, 120]
+    /// 模型配置只保存稳定引用；动态目录与协议元数据另存为可丢弃缓存。
+    private static let modelConfigurationSchemaVersion = 2
 
     /// 界面语言。跟随系统时由系统首选语言决定。
     enum AppLanguage: String, CaseIterable, Identifiable {
@@ -160,6 +164,10 @@ final class SettingsStore: ObservableObject {
     @Published var showPanel: Bool { didSet { defaults.set(showPanel, forKey: "showPanel") } }
     /// 过滤本机声音(AVAudioEngine Voice Processing):开会后/会议中避免录进电脑外放
     @Published var filterLocalAudio: Bool { didSet { defaults.set(filterLocalAudio, forKey: "filterLocalAudio") } }
+    /// 单个模型尝试的等待上限；超时后 ModelRouter 自动进入下一项。
+    @Published var modelRequestTimeoutSeconds: Int {
+        didSet { defaults.set(modelRequestTimeoutSeconds, forKey: "modelRequestTimeoutSeconds") }
+    }
     @Published var launchAtLogin: Bool {
         didSet {
             defaults.set(launchAtLogin, forKey: "launchAtLogin")
@@ -217,6 +225,9 @@ final class SettingsStore: ObservableObject {
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true
         showPanel = defaults.object(forKey: "showPanel") as? Bool ?? true
         filterLocalAudio = defaults.object(forKey: "filterLocalAudio") as? Bool ?? false
+        let storedTimeout = defaults.integer(forKey: "modelRequestTimeoutSeconds")
+        modelRequestTimeoutSeconds = Self.modelRequestTimeoutOptions.contains(storedTimeout)
+            ? storedTimeout : Self.defaultModelRequestTimeoutSeconds
         launchAtLogin = defaults.object(forKey: "launchAtLogin") as? Bool ?? false
         primaryKey = TriggerKey(rawValue: defaults.string(forKey: "primaryKey") ?? "") ?? .fn
         altKey = TriggerKey(rawValue: defaults.string(forKey: "altKey") ?? "") ?? .none
@@ -229,18 +240,34 @@ final class SettingsStore: ObservableObject {
         keepHistory = defaults.object(forKey: "keepHistory") as? Bool ?? true
         debugMode = defaults.object(forKey: "debugMode") as? Bool ?? false
         let provider = ModelProvider.defaultOpenAI
-        modelProviders = Self.loadCodable([ModelProvider].self, from: defaults, key: "modelProviders")
-            ?? [provider]
-        transcriptionModels = Self.loadCodable([ConfiguredModel].self, from: defaults, key: "transcriptionModels")
-            ?? provider.kind.defaultPresets(for: .transcription).enumerated().map { index, preset in
+        let loadedProviders = Self.loadLossyArray(ModelProvider.self, from: defaults,
+                                                  key: "modelProviders")
+        let safeProviders = Self.normalizedProviders(loadedProviders ?? [provider], fallback: provider)
+        modelProviders = safeProviders
+        let loadedTranscription = Self.loadLossyArray(ConfiguredModel.self, from: defaults,
+                                                       key: "transcriptionModels")
+        transcriptionModels = Self.normalizedModels(
+            loadedTranscription ?? [], providers: safeProviders, capability: .transcription,
+            legacyFallback: provider.kind.defaultPresets(for: .transcription).enumerated().map { index, preset in
                 ConfiguredModel(id: "transcription-default-\(index)", providerID: provider.id,
                                 modelID: preset.id, displayName: preset.displayName)
-            }
+            })
         let previousLLM = defaults.string(forKey: "llmModel")?.trimmingCharacters(in: .whitespacesAndNewlines)
         let migratedLLM = (previousLLM?.isEmpty == false ? previousLLM : nil) ?? Self.defaultLLMModel
-        languageModels = Self.loadCodable([ConfiguredModel].self, from: defaults, key: "languageModels")
-            ?? [ConfiguredModel(id: "language-primary", providerID: provider.id, modelID: migratedLLM)]
+        let loadedLanguage = Self.loadLossyArray(ConfiguredModel.self, from: defaults,
+                                                  key: "languageModels")
+        languageModels = Self.normalizedModels(
+            loadedLanguage ?? [], providers: safeProviders, capability: .language,
+            legacyFallback: [ConfiguredModel(id: "language-primary", providerID: provider.id,
+                                             modelID: migratedLLM)])
         onboardingDone = defaults.object(forKey: "onboardingDone") as? Bool ?? false
+
+        // 将逐项容错解码后的结果立即写回当前 schema。以后新增字段、删除来源，
+        // 或某条旧记录损坏时，都只会丢弃该条记录而不是让整个模型页无法启动。
+        saveCodable(modelProviders, forKey: "modelProviders")
+        saveCodable(transcriptionModels, forKey: "transcriptionModels")
+        saveCodable(languageModels, forKey: "languageModels")
+        defaults.set(Self.modelConfigurationSchemaVersion, forKey: "modelConfigurationSchemaVersion")
     }
 
     func addProvider(kind: ModelProviderKind, apiKey: String? = nil) -> ModelProvider {
@@ -353,10 +380,49 @@ final class SettingsStore: ObservableObject {
         defaults.set(data, forKey: key)
     }
 
-    private static func loadCodable<T: Decodable>(_ type: T.Type, from defaults: UserDefaults,
-                                                   key: String) -> T? {
-        guard let data = defaults.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(type, from: data)
+    /// 数组逐项解码，避免一条过时或损坏的模型来源让整个配置数组解码失败。
+    private static func loadLossyArray<T: Decodable>(_ type: T.Type, from defaults: UserDefaults,
+                                                      key: String) -> [T]? {
+        guard let data = defaults.data(forKey: key),
+              let objects = try? JSONSerialization.jsonObject(with: data) as? [Any] else { return nil }
+        return objects.compactMap { object in
+            guard JSONSerialization.isValidJSONObject(object),
+                  let itemData = try? JSONSerialization.data(withJSONObject: object) else { return nil }
+            return try? JSONDecoder().decode(type, from: itemData)
+        }
+    }
+
+    private static func normalizedProviders(_ providers: [ModelProvider],
+                                            fallback: ModelProvider) -> [ModelProvider] {
+        var seen = Set<String>()
+        let result = providers.filter { provider in
+            !provider.id.isEmpty && !provider.name.isEmpty && seen.insert(provider.id).inserted
+        }
+        return result.isEmpty ? [fallback] : result
+    }
+
+    private static func normalizedModels(_ models: [ConfiguredModel], providers: [ModelProvider],
+                                         capability: ModelCapability,
+                                         legacyFallback: [ConfiguredModel]) -> [ConfiguredModel] {
+        let providerIDs = Set(providers.map(\.id))
+        var seen = Set<String>()
+        let result = models.compactMap { item -> ConfiguredModel? in
+            guard !item.id.isEmpty, !item.modelID.isEmpty, providerIDs.contains(item.providerID),
+                  seen.insert("\(item.providerID)\u{1f}\(item.modelID)").inserted else { return nil }
+            var value = item
+            if value.displayName.isEmpty { value.displayName = value.modelID }
+            return value
+        }
+        if !result.isEmpty { return result }
+
+        // 旧版默认 OpenAI 占位仍有效时保留；否则根据升级后第一个有效来源重建。
+        if legacyFallback.allSatisfy({ providerIDs.contains($0.providerID) }) { return legacyFallback }
+        guard let replacement = providers.first else { return [] }
+        return replacement.kind.defaultPresets(for: capability).enumerated().map { index, preset in
+            ConfiguredModel(id: "recovered-\(capability.rawValue)-\(index)",
+                            providerID: replacement.id, modelID: preset.id,
+                            displayName: preset.displayName)
+        }
     }
 
     // MARK: - 悬浮条位置(按屏幕记忆)

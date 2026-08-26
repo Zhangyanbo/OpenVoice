@@ -6,6 +6,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case openAI
     case google
     case ollama
+    case openCodeZen
+    case openCodeGo
 
     var id: String { rawValue }
 
@@ -14,10 +16,32 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .openAI: return "OpenAI"
         case .google: return "Google"
         case .ollama: return "Ollama"
+        case .openCodeZen: return "OpenCode Zen"
+        case .openCodeGo: return "OpenCode Go"
         }
     }
 
     var requiresAPIKey: Bool { self != .ollama }
+
+    var isOpenCode: Bool {
+        self == .openCodeZen || self == .openCodeGo
+    }
+
+    var openCodeCatalogID: String? {
+        switch self {
+        case .openCodeZen: return "opencode"
+        case .openCodeGo: return "opencode-go"
+        default: return nil
+        }
+    }
+
+    var openCodeAPIBase: URL? {
+        switch self {
+        case .openCodeZen: return URL(string: "https://opencode.ai/zen/v1")
+        case .openCodeGo: return URL(string: "https://opencode.ai/zen/go/v1")
+        default: return nil
+        }
+    }
 
     func presets(for capability: ModelCapability) -> [ModelPreset] {
         switch (self, capability) {
@@ -52,6 +76,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
                 ModelPreset(id: "gemma4:e2b-it-qat", displayName: "Gemma 4 E2B (QAT)"),
                 ModelPreset(id: "gemma4:e4b-it-qat", displayName: "Gemma 4 E4B (QAT)"),
             ]
+        case (.openCodeZen, _), (.openCodeGo, _):
+            return OpenCodeModelCatalog.fallbackPresets(kind: self, capability: capability)
         }
     }
 
@@ -69,6 +95,20 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case (.ollama, .transcription), (.ollama, .language):
             // 首次添加只启用更轻的 E2B；E4B 可在设置中手动加入回退链。
             return Array(presets(for: capability).prefix(1))
+        case (.openCodeZen, .transcription):
+            return presets(for: capability).filter {
+                ["gemini-3.5-flash-lite", "mimo-v2.5-free"].contains($0.id)
+            }
+        case (.openCodeZen, .language):
+            return presets(for: capability).filter {
+                [SettingsStore.defaultLLMModel, "mimo-v2.5-free"].contains($0.id)
+            }
+        case (.openCodeGo, .transcription):
+            return presets(for: capability).filter { $0.id == "mimo-v2.5" }
+        case (.openCodeGo, .language):
+            return presets(for: capability).filter {
+                [SettingsStore.defaultLLMModel, "mimo-v2.5", "ox-alpha-free"].contains($0.id)
+            }
         }
     }
 
@@ -80,6 +120,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("在 Google AI Studio 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
         case .ollama:
             return nil
+        case .openCodeZen, .openCodeGo:
+            return tr("在 opencode.ai 获取。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
         }
     }
 
@@ -91,6 +133,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return URL(string: "https://aistudio.google.com/api-keys")!
         case .ollama:
             return nil
+        case .openCodeZen, .openCodeGo:
+            return URL(string: "https://opencode.ai/auth")!
         }
     }
 
@@ -102,6 +146,10 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。")
         case .ollama:
             return tr("通过本机 Ollama 运行模型，无需 API Key。请先在 Ollama 中下载所选模型。")
+        case .openCodeZen:
+            return tr("按量使用 OpenCode 精选模型；模型目录会自动更新，并按各模型的原生协议分流。")
+        case .openCodeGo:
+            return tr("使用 OpenCode Go 订阅额度；模型目录会自动更新，并在额度限制内按顺序回退。")
         }
     }
 
@@ -134,6 +182,10 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("输入 $%@ · 输出 $%@/百万 token", "0.75", "3.75")
         case (.ollama, _, _):
             return tr("本地运行")
+        case (.openCodeZen, _, _):
+            return tr("OpenCode Zen 按量计费")
+        case (.openCodeGo, _, _):
+            return tr("OpenCode Go 订阅额度")
         default:
             return nil
         }
@@ -174,6 +226,9 @@ protocol ModelProviderClient {
 struct ModelPreset: Identifiable, Equatable {
     let id: String
     let displayName: String
+    var category: String? = nil
+    var detail: String? = nil
+    var pricing: String? = nil
 }
 
 struct ModelProvider: Codable, Identifiable, Equatable {

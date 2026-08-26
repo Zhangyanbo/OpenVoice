@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-  无账号、无服务器——用你自己的 OpenAI API Key，音频直接从你的 Mac 发给 OpenAI，<br/>
-  其余一切（Key、术语表、历史）只保存在本机。
+  无账号、无中间服务器——可选 OpenAI、Google、OpenCode Zen/Go 或本地 Ollama。<br/>
+  云端请求直接发往所选服务商；Key、术语表和历史只保存在本机。
 </p>
 
 ---
@@ -25,7 +25,7 @@
 
 首次启动会出现引导，跟着走完即可：
 
-1. **OpenAI API Key**——在 [platform.openai.com](https://platform.openai.com) 创建（API 为预付费，需要有余额）。Key 只保存在 Mac 的钥匙串里；
+1. **模型来源**——选择 OpenAI、Google、OpenCode Zen/Go 或本地 Ollama。云端 API Key 只保存在 Mac 的钥匙串里；Ollama 无需密钥；
 2. **麦克风权限**——只在你说话时使用；
 3. **辅助功能权限**——全局快捷键和把文字写进光标位置需要它。
 
@@ -52,7 +52,7 @@
 - **上下文**：默认会读取光标附近少量文字帮助识别，可在 设置 → 隐私 里逐项关闭；
 - 单次录音上限 10 分钟，最后一分钟悬浮条会显示倒计时，到时自动转录，内容不会丢。
 
-费用参考：语音识别约 $0.006/分钟，文本整理几乎可以忽略——日常使用一个月通常不到一杯咖啡。
+费用取决于所选服务商和模型。OpenCode Go 使用订阅额度，Ollama 在本地运行，不产生 API 费用。
 
 ## License
 

@@ -63,7 +63,8 @@ struct GeminiClient: ModelProviderClient {
             ]
             return try await generate(model: model,
                                       contents: Self.content(text: instruction, mediaPart: audioPart),
-                                      generationConfig: Self.transcriptionConfig(wavByteCount: wav.count))
+                                      generationConfig: Self.transcriptionConfig(
+                                        wavByteCount: wav.count, model: model))
         }
 
         // 最长 10 分钟的 16 kHz WAV 在 Base64 后可能超过 inline 限制，
@@ -75,7 +76,8 @@ struct GeminiClient: ModelProviderClient {
             ]
             let text = try await generate(model: model,
                                           contents: Self.content(text: instruction, mediaPart: audioPart),
-                                          generationConfig: Self.transcriptionConfig(wavByteCount: wav.count))
+                                          generationConfig: Self.transcriptionConfig(
+                                            wavByteCount: wav.count, model: model))
             await deleteFile(named: file.name)
             return text
         } catch {
@@ -103,12 +105,12 @@ struct GeminiClient: ModelProviderClient {
         [["role": "user", "parts": [["text": text], mediaPart]]]
     }
 
-    private static func transcriptionConfig(wavByteCount: Int) -> [String: Any] {
+    private static func transcriptionConfig(wavByteCount: Int, model: String) -> [String: Any] {
         // 16 kHz / 16-bit / mono = 32,000 bytes/s；12 tokens/s 给快速口语留足余量。
         let seconds = max(1, (wavByteCount - 44) / 32_000)
         return [
             "maxOutputTokens": min(16_384, max(1_024, seconds * 12 + 512)),
-            "thinkingConfig": ["thinkingLevel": "MINIMAL"],
+            "thinkingConfig": ["thinkingLevel": thinkingLevel(for: model)],
         ]
     }
 
@@ -129,7 +131,7 @@ struct GeminiClient: ModelProviderClient {
             "responseMimeType": "application/json",
             "responseSchema": schema,
             "maxOutputTokens": OpenAIClient.outputTokenCeiling(forTranscript: transcript),
-            "thinkingConfig": ["thinkingLevel": "MINIMAL"],
+            "thinkingConfig": ["thinkingLevel": Self.thinkingLevel(for: model)],
         ]
         let payload: [String: Any] = [
             "systemInstruction": ["parts": [["text": system]]],
@@ -154,7 +156,15 @@ struct GeminiClient: ModelProviderClient {
         ])
     }
 
-    private func sendGenerate(model: String, payload: [String: Any]) async throws -> String {
+    private static func thinkingLevel(for model: String) -> String {
+        let id = model.lowercased()
+        // Gemini 3.7 Flash 与 Pro 系列不接受 MINIMAL；LOW 是它们支持的最低档。
+        if id.contains("3.7") || id.contains("pro") { return "LOW" }
+        return "MINIMAL"
+    }
+
+    private func sendGenerate(model: String, payload: [String: Any],
+                              allowThinkingFallback: Bool = true) async throws -> String {
         guard let url = URL(string: "\(base.absoluteString)/models/\(model):generateContent") else {
             throw ClientError.badResponse
         }
@@ -165,7 +175,19 @@ struct GeminiClient: ModelProviderClient {
         request.httpBody = try JSONSerialization.data(withJSONObject: payload)
 
         let (data, response) = try await session.data(for: request)
-        try Self.checkHTTP(data: data, response: response)
+        do {
+            try Self.checkHTTP(data: data, response: response)
+        } catch ClientError.http(let code, let message)
+                    where allowThinkingFallback && code == 400
+                    && message.lowercased().contains("thinking") {
+            var fallback = payload
+            if var config = fallback["generationConfig"] as? [String: Any] {
+                config.removeValue(forKey: "thinkingConfig")
+                fallback["generationConfig"] = config
+            }
+            return try await sendGenerate(model: model, payload: fallback,
+                                          allowThinkingFallback: false)
+        }
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let candidates = json["candidates"] as? [[String: Any]],
               let content = candidates.first?["content"] as? [String: Any],

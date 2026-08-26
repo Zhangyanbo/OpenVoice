@@ -4,6 +4,7 @@ import SwiftUI
 /// OpenAI: https://developers.openai.com/favicon.svg
 /// Google: https://developers.google.com/static/identity/images/g-logo.png
 /// Ollama: https://github.com/ollama/ollama/blob/main/docs/ollama-logo.svg
+/// OpenCode: https://github.com/anomalyco/opencode/tree/dev/packages/ui/src/assets/icons/provider
 struct ProviderIcon: View {
     let kind: ModelProviderKind
     var size: CGFloat = 26
@@ -22,6 +23,7 @@ struct ProviderIcon: View {
         case .openAI: return 0
         case .google: return size * 0.19
         case .ollama: return size * 0.20
+        case .openCodeZen, .openCodeGo: return size * 0.19
         }
     }
 
@@ -42,6 +44,20 @@ struct ProviderIcon: View {
                 .scaledToFit()
         case .ollama:
             Image("ProviderOllama")
+                .renderingMode(.template)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.14))
+        case .openCodeZen:
+            Image("ProviderOpenCode")
+                .renderingMode(.template)
+                .resizable()
+                .interpolation(.high)
+                .scaledToFit()
+                .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.14))
+        case .openCodeGo:
+            Image("ProviderOpenCodeGo")
                 .renderingMode(.template)
                 .resizable()
                 .interpolation(.high)

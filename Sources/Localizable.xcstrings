@@ -41,6 +41,16 @@
         }
       }
     },
+    "%lld 秒": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld sec"
+          }
+        }
+      }
+    },
     "%lld%%": {
       "localizations": {
         "en": {
@@ -67,6 +77,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "API Key (sk-…)"
+          }
+        }
+      }
+    },
+    "Anthropic Messages": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Anthropic Messages"
           }
         }
       }
@@ -107,6 +127,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "法语"
+          }
+        }
+      }
+    },
+    "Gemini API": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gemini API"
           }
         }
       }
@@ -321,6 +351,16 @@
         }
       }
     },
+    "OpenAI 兼容": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenAI Compatible"
+          }
+        }
+      }
+    },
     "OpenAI 无法验证这个 API Key": {
       "localizations": {
         "en": {
@@ -371,6 +411,106 @@
         }
       }
     },
+    "OpenCode Go 已达到当前用量限制，请稍后重试或检查订阅额度。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode Go has reached the current usage limit. Try again later or check your subscription allowance."
+          }
+        }
+      }
+    },
+    "OpenCode Go 订阅额度": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode Go subscription allowance"
+          }
+        }
+      }
+    },
+    "OpenCode Zen 按量计费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode Zen pay-as-you-go"
+          }
+        }
+      }
+    },
+    "OpenCode Zen 额度不足或请求过于频繁，请稍后重试或检查余额。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode Zen has insufficient credit or is rate limited. Try again later or check your balance."
+          }
+        }
+      }
+    },
+    "OpenCode 当前没有返回可用模型。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode returned no available models."
+          }
+        }
+      }
+    },
+    "OpenCode 无法验证这个 API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode could not validate this API key."
+          }
+        }
+      }
+    },
+    "OpenCode 模型目录刷新失败（%lld）。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode model catalog refresh failed (%lld)."
+          }
+        }
+      }
+    },
+    "OpenCode 请求失败（%lld）：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode request failed (%lld): %@"
+          }
+        }
+      }
+    },
+    "OpenCode 返回了无法解析的模型目录。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode returned an unparseable model catalog."
+          }
+        }
+      }
+    },
+    "OpenCode 返回了无法解析的结果。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OpenCode returned an unparseable response."
+          }
+        }
+      }
+    },
     "OpenVoice %@ 可以更新": {
       "localizations": {
         "en": {
@@ -407,6 +547,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "葡萄牙语"
+          }
+        }
+      }
+    },
+    "Responses API": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Responses API"
           }
         }
       }
@@ -611,6 +761,16 @@
         }
       }
     },
+    "使用 OpenCode Go 订阅额度；模型目录会自动更新，并在额度限制内按顺序回退。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use your OpenCode Go subscription allowance. The catalog updates automatically and models fall back in order within usage limits."
+          }
+        }
+      }
+    },
     "使用当前 App 上下文": {
       "localizations": {
         "en": {
@@ -701,12 +861,32 @@
         }
       }
     },
+    "免费": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Free"
+          }
+        }
+      }
+    },
     "全选": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "Select All"
+          }
+        }
+      }
+    },
+    "全部": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All"
           }
         }
       }
@@ -741,6 +921,16 @@
         }
       }
     },
+    "其他": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Other"
+          }
+        }
+      }
+    },
     "删除": {
       "localizations": {
         "en": {
@@ -757,6 +947,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Delete Model Source"
+          }
+        }
+      }
+    },
+    "刷新模型目录": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refresh Model Catalog"
           }
         }
       }
@@ -787,6 +987,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Update"
+          }
+        }
+      }
+    },
+    "单模型超时": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Per-Model Timeout"
           }
         }
       }
@@ -901,6 +1111,16 @@
         }
       }
     },
+    "在 opencode.ai 获取。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Get it from opencode.ai. The key is stored only in the macOS Keychain, never in configuration files or logs."
+          }
+        }
+      }
+    },
     "在 platform.openai.com 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。": {
       "localizations": {
         "en": {
@@ -917,6 +1137,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show details of the last request on the History tab"
+          }
+        }
+      }
+    },
+    "处理完成": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Processing Complete"
           }
         }
       }
@@ -1097,6 +1327,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No OpenAI API key is set."
+          }
+        }
+      }
+    },
+    "尚未设置 OpenCode API Key。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No OpenCode API key is configured."
           }
         }
       }
@@ -1401,6 +1641,16 @@
         }
       }
     },
+    "按量使用 OpenCode 精选模型；模型目录会自动更新，并按各模型的原生协议分流。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Use OpenCode's curated models with pay-as-you-go billing. The catalog updates automatically and each model uses its native protocol."
+          }
+        }
+      }
+    },
     "授予辅助功能权限": {
       "localizations": {
         "en": {
@@ -1471,6 +1721,16 @@
         }
       }
     },
+    "搜索模型名称或 ID": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Search model name or ID"
+          }
+        }
+      }
+    },
     "撤销": {
       "localizations": {
         "en": {
@@ -1487,6 +1747,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Play Sounds"
+          }
+        }
+      }
+    },
+    "支持语音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio"
           }
         }
       }
@@ -1911,12 +2181,52 @@
         }
       }
     },
+    "模型 %@ 不支持语音输入。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model %@ does not support audio input."
+          }
+        }
+      }
+    },
+    "模型 %@ 在 %lld 秒内没有返回，已切换到下一个。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model %@ did not respond within %lld seconds; switched to the next model."
+          }
+        }
+      }
+    },
+    "模型 %@ 已被 OpenCode 停用，已切换到下一个。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model %@ has been retired by OpenCode; switched to the next model."
+          }
+        }
+      }
+    },
     "模型 %@ 引用的来源不存在。": {
       "localizations": {
         "en": {
           "stringUnit": {
             "state": "translated",
             "value": "The source referenced by model %@ does not exist."
+          }
+        }
+      }
+    },
+    "模型 %@ 没有返回文本，已切换到下一个。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model %@ returned no text; switched to the next model."
           }
         }
       }
@@ -1951,6 +2261,16 @@
         }
       }
     },
+    "模型目录已更新：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Model catalog updated: %@"
+          }
+        }
+      }
+    },
     "欢迎使用 OpenVoice": {
       "localizations": {
         "en": {
@@ -1977,6 +2297,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Downloading and installing Ollama…"
+          }
+        }
+      }
+    },
+    "正在处理…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Post-processing…"
           }
         }
       }
@@ -2047,6 +2377,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "No matching terms"
+          }
+        }
+      }
+    },
+    "没有匹配的模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No matching models"
           }
         }
       }
@@ -2241,6 +2581,16 @@
         }
       }
     },
+    "确定": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
     "移除模型": {
       "localizations": {
         "en": {
@@ -2431,6 +2781,36 @@
         }
       }
     },
+    "该模型会将输入与输出用于改进模型，需先在 OpenCode 明确同意：%@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This model uses inputs and outputs to improve the model. Explicit consent is required in OpenCode: %@"
+          }
+        }
+      }
+    },
+    "该模型会将输入与输出用于改进模型，需先在 OpenCode 账户中明确同意。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This model uses inputs and outputs to improve the model. Explicit consent is required in your OpenCode account."
+          }
+        }
+      }
+    },
+    "该模型目前不支持你所在的地区。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This model is not currently available in your region."
+          }
+        }
+      }
+    },
     "语言": {
       "localizations": {
         "en": {
@@ -2557,6 +2937,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read Selected Text"
+          }
+        }
+      }
+    },
+    "超过此时间没有返回时，自动尝试下一个模型": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Automatically try the next model if no response arrives within this time"
           }
         }
       }

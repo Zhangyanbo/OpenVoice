@@ -94,7 +94,7 @@ enum TextInserter {
 
         // 粘贴在目标 App 里是异步完成的,过早恢复剪贴板会粘到旧内容
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            restore(pasteboard, items: saved)
+            restore(items: saved)
             completion(.inserted(method: .paste))
         }
     }
@@ -138,16 +138,33 @@ enum TextInserter {
         }
     }
 
-    private static func restore(_ pasteboard: NSPasteboard, items: [[String: Data]]) {
-        pasteboard.clearContents()
-        guard !items.isEmpty else { return }
-        let restored = items.map { entry -> NSPasteboardItem in
-            let item = NSPasteboardItem()
-            for (type, data) in entry {
-                item.setData(data, forType: NSPasteboard.PasteboardType(type))
-            }
-            return item
+    private static func restore(items: [[String: Data]]) {
+        // NSPasteboard.writeObjects 会把 public.file-url 重新解析为文件对象，
+        // 并在主线程同步 stat 路径来生成 security scope。若剪贴板里
+        // 是断开或缓慢的 SMB 文件，这会卡住整个 App。底层 Pasteboard API
+        // 只写回已保存的原始 flavor，不重新解析文件 URL。
+        var rawPasteboard: Pasteboard?
+        guard PasteboardCreate(kPasteboardClipboard as CFString, &rawPasteboard) == noErr,
+              let rawPasteboard else {
+            log("剪贴板恢复失败（无法打开系统剪贴板）")
+            return
         }
-        pasteboard.writeObjects(restored)
+        guard PasteboardClear(rawPasteboard) == noErr else {
+            log("剪贴板恢复失败（无法清空临时文本）")
+            return
+        }
+        guard !items.isEmpty else { return }
+
+        for (index, entry) in items.enumerated() {
+            guard let itemID = UnsafeMutableRawPointer(bitPattern: index + 1) else { continue }
+            for (type, data) in entry {
+                let status = PasteboardPutItemFlavor(rawPasteboard, itemID,
+                                                     type as CFString, data as CFData,
+                                                     PasteboardFlavorFlags(rawValue: 0))
+                if status != noErr {
+                    log("剪贴板类型恢复失败（type=\(type), err=\(status)）")
+                }
+            }
+        }
     }
 }

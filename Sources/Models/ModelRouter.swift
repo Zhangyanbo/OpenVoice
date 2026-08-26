@@ -3,6 +3,19 @@ import Foundation
 /// 按用户排序依次尝试模型。每个模型都显式引用模型来源实例，
 /// 因此加入新的云端或本地来源时，回退链本身不需改变。
 enum ModelRouter {
+    private enum AttemptError: LocalizedError {
+        case timeout(String, Int)
+        case empty(String)
+
+        var errorDescription: String? {
+            switch self {
+            case .timeout(let model, let seconds):
+                return tr("模型 %@ 在 %lld 秒内没有返回，已切换到下一个。", model, seconds)
+            case .empty(let model): return tr("模型 %@ 没有返回文本，已切换到下一个。", model)
+            }
+        }
+    }
+
     enum RouterError: LocalizedError {
         case noModels(ModelCapability)
         case allFailed(ModelCapability, String, [ModelAttempt])
@@ -64,9 +77,11 @@ enum ModelRouter {
         models: [ConfiguredModel],
         providers: [ModelProvider],
         capability: ModelCapability,
-        operation: (any ModelProviderClient, ConfiguredModel) async throws -> String
+        operation: @escaping (any ModelProviderClient, ConfiguredModel) async throws -> String
     ) async throws -> ModelExecutionResult {
         guard !models.isEmpty else { throw RouterError.noModels(capability) }
+        let timeoutSeconds = SettingsStore.shared.modelRequestTimeoutSeconds
+        let timeoutNanoseconds = UInt64(timeoutSeconds) * 1_000_000_000
         var lastReason = tr("没有可用的模型来源或 API Key。")
         var attempts: [ModelAttempt] = []
 
@@ -86,7 +101,22 @@ enum ModelRouter {
             }
 
             do {
-                let text = try await operation(try makeClient(for: provider), model)
+                let client = try makeClient(for: provider)
+                let text = try await withThrowingTaskGroup(of: String.self) { group in
+                    group.addTask { try await operation(client, model) }
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: timeoutNanoseconds)
+                        throw AttemptError.timeout(model.displayName, timeoutSeconds)
+                    }
+                    guard let result = try await group.next() else {
+                        throw AttemptError.empty(model.displayName)
+                    }
+                    group.cancelAll()
+                    return result
+                }
+                guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                    throw AttemptError.empty(model.displayName)
+                }
                 attempts.append(attempt(model: model, providerName: provider.name,
                                         capability: capability, succeeded: true, reason: nil))
                 return ModelExecutionResult(text: text, attempts: attempts)
@@ -131,6 +161,11 @@ enum ModelRouter {
             return GeminiClient(apiKey: key)
         case .ollama:
             return OllamaClient()
+        case .openCodeZen, .openCodeGo:
+            guard let key = KeychainStore.loadAPIKey(providerID: provider.id) else {
+                throw OpenCodeClient.ClientError.noAPIKey
+            }
+            return OpenCodeClient(providerID: provider.id, kind: provider.kind, apiKey: key)
         }
     }
 }

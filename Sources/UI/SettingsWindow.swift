@@ -389,6 +389,16 @@ private struct GeneralPane: View {
                     }
                 }
                 CardDivider()
+                SettingsRow(title: tr("单模型超时"),
+                            subtitle: tr("超过此时间没有返回时，自动尝试下一个模型")) {
+                    Picker("", selection: $settings.modelRequestTimeoutSeconds) {
+                        ForEach(SettingsStore.modelRequestTimeoutOptions, id: \.self) { seconds in
+                            Text(tr("%lld 秒", seconds)).tag(seconds)
+                        }
+                    }
+                    .labelsHidden().fixedSize().id(L10n.effective)
+                }
+                CardDivider()
                 SettingsRow(title: tr("外观")) {
                     Picker("", selection: $settings.appearanceMode) {
                         ForEach(SettingsStore.AppearanceMode.allCases) { mode in
@@ -617,6 +627,7 @@ private struct LanguageCard: View {
 private struct ModelsPane: View {
     @ObservedObject var settings = SettingsStore.shared
     @ObservedObject private var ollama = OllamaModelManager.shared
+    @ObservedObject private var openCode = OpenCodeModelCatalog.shared
     @State private var addingProvider = false
     @State private var editingProvider: ModelProvider?
     @State private var addingModel: ModelCapability?
@@ -682,27 +693,28 @@ private struct ModelsPane: View {
         }
         .sheet(isPresented: $addingProvider) {
             ProviderKeySheet(provider: nil) { kind, key in
-                _ = settings.addProvider(kind: kind, apiKey: key)
+                let provider = settings.addProvider(kind: kind, apiKey: key)
+                if kind.isOpenCode { openCode.refresh(provider: provider, force: true) }
             }
         }
         .sheet(item: $editingProvider) { provider in
             ProviderKeySheet(provider: provider) { _, key in
-                if let key { _ = KeychainStore.saveAPIKey(key, providerID: provider.id) }
+                if let key {
+                    _ = KeychainStore.saveAPIKey(key, providerID: provider.id)
+                    if provider.kind.isOpenCode { openCode.refresh(provider: provider, force: true) }
+                }
             }
         }
         .sheet(item: $addingModel) { capability in
-            AddModelSheet(capability: capability, providers: settings.modelProviders) { model in
+            let configured = capability == .transcription
+                ? settings.transcriptionModels : settings.languageModels
+            AddModelSheet(capability: capability, providers: settings.modelProviders,
+                          configuredModels: configured) { models in
                 switch capability {
                 case .transcription:
-                    guard !settings.transcriptionModels.contains(where: {
-                        $0.providerID == model.providerID && $0.modelID == model.modelID
-                    }) else { return }
-                    settings.transcriptionModels.append(model)
+                    settings.transcriptionModels = models
                 case .language:
-                    guard !settings.languageModels.contains(where: {
-                        $0.providerID == model.providerID && $0.modelID == model.modelID
-                    }) else { return }
-                    settings.languageModels.append(model)
+                    settings.languageModels = models
                 }
             }
         }
@@ -735,7 +747,10 @@ private struct ModelsPane: View {
         } message: { pending in
             Text(tr("将从回退顺序中移除 %@。", pending.model.displayName))
         }
-        .onAppear { ollama.refresh() }
+        .onAppear {
+            ollama.refresh()
+            openCode.refreshConfiguredProviders()
+        }
         .onReceive(ollamaRefreshTimer) { _ in ollama.refresh() }
     }
 
@@ -804,6 +819,7 @@ private struct PendingModelRemoval: Identifiable {
 
 private struct ModelPriorityRow: View {
     @ObservedObject private var ollama = OllamaModelManager.shared
+    @ObservedObject private var openCode = OpenCodeModelCatalog.shared
     let index: Int
     let model: ConfiguredModel
     let provider: ModelProvider?
@@ -906,7 +922,12 @@ private struct ModelPriorityRow: View {
     }
 
     private var pricingSummary: String? {
-        provider?.kind.pricingSummary(for: model.modelID, capability: capability)
+        if let provider, provider.kind.isOpenCode {
+            let model = openCode.model(providerID: provider.id, kind: provider.kind,
+                                       modelID: self.model.modelID)
+            return provider.kind == .openCodeGo ? tr("OpenCode Go 订阅额度") : model.pricingText
+        }
+        return provider?.kind.pricingSummary(for: model.modelID, capability: capability)
     }
 }
 
@@ -926,7 +947,7 @@ private struct ProviderKeySheet: View {
                 .font(.system(size: 18, weight: .semibold))
 
             if provider == nil {
-                HStack(spacing: 10) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 155), spacing: 10)], spacing: 10) {
                     ForEach(ModelProviderKind.allCases) { item in
                         providerCard(item)
                     }
@@ -976,7 +997,7 @@ private struct ProviderKeySheet: View {
             }
         }
         .padding(22)
-        .frame(width: 480)
+        .frame(width: 560)
         .onAppear { if let provider { kind = provider.kind } }
     }
 
@@ -1027,6 +1048,9 @@ private struct ProviderKeySheet: View {
                 case .openAI: try await OpenAIClient(apiKey: candidate).validateKey()
                 case .google: try await GeminiClient(apiKey: candidate).validateKey()
                 case .ollama: break
+                case .openCodeZen, .openCodeGo:
+                    try await OpenCodeClient(providerID: provider?.id ?? "validation",
+                                             kind: kind, apiKey: candidate).validateKey()
                 }
                 await MainActor.run {
                     onSave(kind, candidate)
@@ -1046,49 +1070,256 @@ private struct ProviderKeySheet: View {
 private struct AddModelSheet: View {
     let capability: ModelCapability
     let providers: [ModelProvider]
-    let onAdd: (ConfiguredModel) -> Void
+    let configuredModels: [ConfiguredModel]
+    let onConfirm: ([ConfiguredModel]) -> Void
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var openCode = OpenCodeModelCatalog.shared
     @State private var providerID = ""
-    @State private var modelID = ""
+    @State private var selectedModelKeys: Set<String> = []
+    @State private var query = ""
+    @State private var category = ""
 
     private var provider: ModelProvider? { providers.first { $0.id == providerID } }
-    private var presets: [ModelPreset] { provider?.kind.presets(for: capability) ?? [] }
+    private var presets: [ModelPreset] {
+        guard let provider else { return [] }
+        return presets(for: provider)
+    }
+    private func presets(for provider: ModelProvider) -> [ModelPreset] {
+        let source = provider.kind.isOpenCode
+            ? openCode.presets(for: provider, capability: capability)
+            : provider.kind.presets(for: capability)
+        return source.map { preset in
+            var value = preset
+            if value.category == nil { value.category = provider.kind.displayName }
+            if value.pricing == nil {
+                value.pricing = provider.kind.pricingSummary(for: value.id, capability: capability)
+            }
+            return value
+        }
+    }
+    private var categories: [String] {
+        Array(Set(presets.compactMap(\.category))).sorted()
+    }
+    private var filteredPresets: [ModelPreset] {
+        let needle = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return presets.filter { preset in
+            let matchesCategory = category.isEmpty || preset.category == category
+            let haystack = [preset.displayName, preset.id, preset.category ?? "", preset.detail ?? ""]
+                .joined(separator: " ")
+            return matchesCategory && (needle.isEmpty || haystack.localizedCaseInsensitiveContains(needle))
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text(tr("添加模型")).font(.system(size: 18, weight: .semibold))
-            Picker(tr("模型来源"), selection: $providerID) {
-                ForEach(providers) { provider in Text(provider.name).tag(provider.id) }
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(tr("添加模型")).font(.system(size: 18, weight: .semibold))
+                Spacer()
+                if let provider, provider.kind.isOpenCode {
+                    if openCode.isRefreshing(provider.id) {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Button {
+                            openCode.refresh(provider: provider, force: true)
+                        } label: {
+                            Label(tr("刷新模型目录"), systemImage: "arrow.clockwise")
+                        }
+                        .controlSize(.small)
+                    }
+                }
             }
-            Picker(tr("模型"), selection: $modelID) {
-                ForEach(presets) { preset in Text(preset.displayName).tag(preset.id) }
+
+            HStack(spacing: 10) {
+                Picker(tr("模型来源"), selection: $providerID) {
+                    ForEach(providers) { provider in Text(provider.name).tag(provider.id) }
+                }
+                .frame(width: 220)
+                HStack(spacing: 7) {
+                    Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                    TextField(tr("搜索模型名称或 ID"), text: $query)
+                        .textFieldStyle(.plain)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 7)
+                .background(Color(nsColor: .controlBackgroundColor),
+                            in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
             }
-            if let provider,
-               let pricing = provider.kind.pricingSummary(for: modelID, capability: capability) {
-                Text(pricing)
-                    .font(.system(size: 11))
-                    .foregroundStyle(.secondary)
+
+            if !categories.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 7) {
+                        categoryButton(title: tr("全部"), value: "")
+                        ForEach(categories, id: \.self) { item in
+                            categoryButton(title: item, value: item)
+                        }
+                    }
+                }
             }
+
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    if filteredPresets.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 22)).foregroundStyle(.tertiary)
+                            Text(tr("没有匹配的模型"))
+                                .font(.system(size: 12)).foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 220)
+                    } else {
+                        ForEach(Array(filteredPresets.enumerated()), id: \.element.id) { index, preset in
+                            if index > 0 { Divider().padding(.leading, 38) }
+                            modelButton(preset)
+                        }
+                    }
+                }
+            }
+            .frame(maxHeight: 350)
+            .background(Color(nsColor: .controlBackgroundColor).opacity(0.55),
+                        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.08), lineWidth: 1))
+
+            if let provider, let error = openCode.errors[provider.id], provider.kind.isOpenCode {
+                Text(error).font(.system(size: 11)).foregroundStyle(.red).lineLimit(2)
+            } else if let provider, let date = openCode.fetchedAt[provider.id], provider.kind.isOpenCode {
+                Text(tr("模型目录已更新：%@", date.formatted(date: .omitted, time: .shortened)))
+                    .font(.system(size: 11)).foregroundStyle(.secondary)
+            }
+
             HStack {
                 Spacer()
                 Button(tr("取消")) { dismiss() }
-                Button(tr("添加")) {
-                    guard let preset = presets.first(where: { $0.id == modelID }) else { return }
-                    onAdd(ConfiguredModel(providerID: providerID, modelID: preset.id,
-                                          displayName: preset.displayName))
+                Button(tr("确定")) {
+                    onConfirm(updatedModels())
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(provider == nil || modelID.isEmpty)
+                .disabled(provider == nil)
             }
         }
         .padding(22)
-        .frame(width: 400)
+        .frame(width: 620, height: 570)
         .onAppear {
             if providerID.isEmpty { providerID = providers.first?.id ?? "" }
-            modelID = presets.first?.id ?? ""
+            selectedModelKeys = Set(configuredModels.map {
+                selectionKey(providerID: $0.providerID, modelID: $0.modelID)
+            })
+            refreshCurrentProvider()
         }
-        .onChange(of: providerID) { _, _ in modelID = presets.first?.id ?? "" }
+        .onChange(of: providerID) { _, _ in
+            query = ""
+            category = ""
+            refreshCurrentProvider()
+        }
+        .onChange(of: presets) { _, values in
+            if !category.isEmpty, !categories.contains(category) { category = "" }
+        }
+    }
+
+    private func refreshCurrentProvider() {
+        guard let provider, provider.kind.isOpenCode else { return }
+        openCode.refresh(provider: provider)
+    }
+
+    private func categoryButton(title: String, value: String) -> some View {
+        Button {
+            category = value
+        } label: {
+            Text(title)
+                .font(.system(size: 11, weight: category == value ? .semibold : .regular))
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .foregroundStyle(category == value ? Color.white : Color.primary)
+                .background(category == value ? Color.accentColor : Color.secondary.opacity(0.10),
+                            in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func modelButton(_ preset: ModelPreset) -> some View {
+        let key = selectionKey(providerID: providerID, modelID: preset.id)
+        let selected = selectedModelKeys.contains(key)
+        return Button {
+            if selected {
+                selectedModelKeys.remove(key)
+            } else {
+                selectedModelKeys.insert(key)
+            }
+        } label: {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: selected ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundStyle(selected ? Color.accentColor : Color.secondary.opacity(0.45))
+                    .padding(.top, 2)
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack(spacing: 7) {
+                        Text(preset.displayName).font(.system(size: 13, weight: .medium))
+                        if capability == .transcription {
+                            Text(tr("支持语音"))
+                                .font(.system(size: 9.5, weight: .semibold))
+                                .foregroundStyle(.green)
+                                .padding(.horizontal, 6).padding(.vertical, 2)
+                                .background(Color.green.opacity(0.10), in: Capsule())
+                        }
+                    }
+                    Text(preset.id)
+                        .font(.system(size: 10.5, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        if let detail = preset.detail { Text(detail) }
+                        if let pricing = preset.pricing { Text(pricing) }
+                    }
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(.tertiary)
+                }
+                Spacer(minLength: 0)
+                if let category = preset.category {
+                    Text(category).font(.system(size: 10)).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.horizontal, 12).padding(.vertical, 9)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func selectionKey(providerID: String, modelID: String) -> String {
+        "\(providerID)\u{1f}\(modelID)"
+    }
+
+    /// 保留仍被勾选模型的原顺序，新勾选的模型追加到末尾。目录明确标为
+    /// deprecated 的旧模型会在确认时清掉，即使它曾经保存在用户配置里。
+    private func updatedModels() -> [ConfiguredModel] {
+        var result: [ConfiguredModel] = []
+        var added = Set<String>()
+
+        for model in configuredModels {
+            let key = selectionKey(providerID: model.providerID, modelID: model.modelID)
+            guard selectedModelKeys.contains(key),
+                  let provider = providers.first(where: { $0.id == model.providerID }) else { continue }
+            if provider.kind.isOpenCode,
+               openCode.isDeprecated(providerID: provider.id, kind: provider.kind,
+                                     modelID: model.modelID) { continue }
+            guard added.insert(key).inserted else { continue }
+            if let preset = presets(for: provider).first(where: { $0.id == model.modelID }) {
+                result.append(ConfiguredModel(id: model.id, providerID: provider.id,
+                                              modelID: preset.id, displayName: preset.displayName))
+            } else {
+                // 刷新失败或目录暂时移除时不擅自删除用户配置。
+                result.append(model)
+            }
+        }
+
+        for provider in providers {
+            for preset in presets(for: provider) {
+                let key = selectionKey(providerID: provider.id, modelID: preset.id)
+                guard selectedModelKeys.contains(key), added.insert(key).inserted else { continue }
+                result.append(ConfiguredModel(providerID: provider.id, modelID: preset.id,
+                                              displayName: preset.displayName))
+            }
+        }
+        return result
     }
 }
 

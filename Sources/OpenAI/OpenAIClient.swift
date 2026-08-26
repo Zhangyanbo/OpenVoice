@@ -23,7 +23,9 @@ struct OpenAIClient: ModelProviderClient {
     private let base = URL(string: "https://api.openai.com/v1")!
     private let session: URLSession = {
         let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 60
+        // 用户可把单模型超时设到 120 秒；实际回退时限由 ModelRouter 控制。
+        config.timeoutIntervalForRequest = 120
+        config.timeoutIntervalForResource = 120
         return URLSession(configuration: config)
     }()
 
@@ -113,7 +115,8 @@ struct OpenAIClient: ModelProviderClient {
         ]
         do {
             return try await sendChat(payload: payload)
-        } catch ClientError.http(let code, let message) where code == 400 && message.contains("reasoning_effort") {
+        } catch ClientError.http(let code, let message)
+                    where code == 400 && message.lowercased().contains("reasoning_effort") {
             payload.removeValue(forKey: "reasoning_effort")
             return try await sendChat(payload: payload)
         }
