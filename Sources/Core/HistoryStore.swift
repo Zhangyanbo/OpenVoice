@@ -78,28 +78,30 @@ final class HistoryStore: ObservableObject {
 
     static let shared = HistoryStore()
     private static let maxEntries = 200
-    /// 最多保留多少条录音供重新转录
-    private static let maxRetainedRecordings = 10
 
     @Published private(set) var entries: [Entry] = []
     /// 当前有录音文件的条目(启动对账后建立,增删时同步维护)
-    private(set) var recordingIDs = Set<UUID>()
+    @Published private(set) var recordingIDs = Set<UUID>()
     /// 正在重新转录的条目(行内旋转指示)
     @Published private(set) var retranscribingID: UUID?
 
     private let fileURL = AppPaths.supportDirectory.appendingPathComponent("history.json")
     private let recordingsDirectory = AppPaths.supportDirectory.appendingPathComponent("recordings", isDirectory: true)
+    private var cancellables = Set<AnyCancellable>()
 
     private init() {
         try? FileManager.default.createDirectory(at: recordingsDirectory,
                                                  withIntermediateDirectories: true)
         guard let data = try? Data(contentsOf: fileURL) else {
             reconcileRecordings(validIDs: [])
+            observeRetentionSettings()
             return
         }
         if let decoded = try? JSONDecoder().decode([Entry].self, from: data) {
             entries = decoded
+            let removedExpiredEntries = trimExpiredEntries()
             reconcileRecordings(validIDs: Set(entries.map(\.id)))
+            if removedExpiredEntries { save() }
         } else {
             // 解码失败时把原文件改名备份,绝不让后续 save() 用空列表覆盖用户数据
             let backup = fileURL.appendingPathExtension("corrupt-\(Int(Date().timeIntervalSince1970))")
@@ -107,6 +109,7 @@ final class HistoryStore: ObservableObject {
             NSLog("HistoryStore: 解码失败,原文件已备份为 \(backup.lastPathComponent)")
             reconcileRecordings(validIDs: [])
         }
+        observeRetentionSettings()
     }
 
     // MARK: - 增删查
@@ -130,6 +133,7 @@ final class HistoryStore: ObservableObject {
             for stale in entries.suffix(overflow) { deleteRecordingFile(stale.id) }
             entries.removeLast(overflow)
         }
+        _ = trimExpiredEntries()
         trimRetainedRecordings()
         save()
     }
@@ -175,6 +179,36 @@ final class HistoryStore: ObservableObject {
 
     // MARK: - 录音文件管理
 
+    /// 设置修改后立即执行同一套清理，不等待下一次录音或应用重启。
+    private func observeRetentionSettings() {
+        SettingsStore.shared.$transcriptionHistoryRetentionDays
+            .combineLatest(SettingsStore.shared.$retainedRecordingCount)
+            .dropFirst()
+            .sink { [weak self] days, recordingLimit in
+                self?.applyRetentionPolicy(days: days, recordingLimit: recordingLimit)
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyRetentionPolicy(days: Int, recordingLimit: Int) {
+        let removedExpiredEntries = trimExpiredEntries(retentionDays: days)
+        trimRetainedRecordings(limit: recordingLimit)
+        if removedExpiredEntries { save() }
+    }
+
+    /// 文字历史按时间保留；删除条目时一并删除其录音，避免孤儿文件。
+    @discardableResult
+    private func trimExpiredEntries(retentionDays: Int? = nil, now: Date = Date()) -> Bool {
+        let days = retentionDays ?? SettingsStore.shared.transcriptionHistoryRetentionDays
+        let cutoff = now.addingTimeInterval(-TimeInterval(days) * 24 * 60 * 60)
+        let expiredIDs = entries.lazy.filter { $0.date < cutoff }.map(\.id)
+        guard !expiredIDs.isEmpty else { return false }
+        let expiredIDSet = Set(expiredIDs)
+        entries.removeAll { expiredIDSet.contains($0.id) }
+        for id in expiredIDSet { deleteRecordingFile(id) }
+        return true
+    }
+
     /// 启动对账:删除孤儿文件,并按保留上限裁剪
     private func reconcileRecordings(validIDs: Set<UUID>) {
         let fm = FileManager.default
@@ -194,14 +228,15 @@ final class HistoryStore: ObservableObject {
         trimRetainedRecordings()
     }
 
-    /// 从最新往旧数,只保留前 maxRetainedRecordings 条的录音文件。
+    /// 从最新往旧数,只保留设置中指定条数的录音文件。
     /// 注意 entries 是新的在前(insert at 0),必须正序遍历;
     /// 曾经写成 .reversed() 导致保留的是最旧的、删掉刚录的(spec 回归教训)
-    private func trimRetainedRecordings() {
+    private func trimRetainedRecordings(limit explicitLimit: Int? = nil) {
+        let limit = explicitLimit ?? SettingsStore.shared.retainedRecordingCount
         var count = 0
         for i in entries.indices where recordingIDs.contains(entries[i].id) {
             count += 1
-            if count > Self.maxRetainedRecordings {
+            if count > limit {
                 deleteRecordingFile(entries[i].id)
             }
         }

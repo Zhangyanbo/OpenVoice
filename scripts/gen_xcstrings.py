@@ -268,7 +268,19 @@ PAIRS = {
     "已学习 ×%lld": "Learned ×%lld",
     # 历史页
     "保留历史": "Keep History",
+    "文字历史": "Text History",
+    "超过保留时长的文字记录和录音会自动删除":
+        "Text history and recordings older than this are deleted automatically.",
+    "保留录音": "Recordings",
+    "仅最近的录音可以重新转录，文字历史不受此项影响":
+        "Only the most recent recordings can be retranscribed; text history is unaffected.",
+    "%lld 天": "%lld days",
+    "%lld 条": "%lld recordings",
+    "不保留录音": "Don't Keep Recordings",
     "清空": "Clear",
+    "清空所有历史？": "Clear All History?",
+    "所有转录文字和保留的录音都会从这台 Mac 删除，此操作无法撤销。":
+        "All transcribed text and retained recordings will be deleted from this Mac. This cannot be undone.",
     "还没有转录记录": "No transcriptions yet",
     "发送的上下文": "Context Sent",
     "术语提示": "Glossary Hint",

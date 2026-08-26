@@ -1457,6 +1457,7 @@ private struct HistoryPane: View {
     @State private var copiedID: UUID?
     @State private var showDebug = false
     @State private var pendingDelete: HistoryStore.Entry?
+    @State private var showingClearConfirmation = false
     @State private var expandedIDs = Set<UUID>()
     /// 默认只渲染最近 10 条,点击「显示更多」再加载 20 条,避免长列表卡顿
     @State private var visibleCount = 10
@@ -1470,11 +1471,45 @@ private struct HistoryPane: View {
                 Toggle(tr("保留历史"), isOn: $settings.keepHistory)
                     .toggleStyle(.switch).controlSize(.mini)
                     .font(.system(size: 11))
-                Button(tr("清空")) { history.clear() }
+                Button(tr("清空")) { showingClearConfirmation = true }
                     .controlSize(.small)
                     .disabled(history.entries.isEmpty)
             }
             .padding(.top, 34)
+
+            SettingsCard {
+                HStack(spacing: 10) {
+                    Label(tr("文字历史"), systemImage: "doc.text")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Picker("", selection: $settings.transcriptionHistoryRetentionDays) {
+                        ForEach(SettingsStore.transcriptionHistoryRetentionDayOptions, id: \.self) { days in
+                            Text(tr("%lld 天", days)).tag(days)
+                        }
+                    }
+                    .labelsHidden().fixedSize().controlSize(.small).id(L10n.effective)
+                    .help(tr("超过保留时长的文字记录和录音会自动删除"))
+
+                    Spacer(minLength: 18)
+                    Divider().frame(height: 20)
+                    Spacer(minLength: 18)
+
+                    Label(tr("保留录音"), systemImage: "waveform")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                    Picker("", selection: $settings.retainedRecordingCount) {
+                        ForEach(SettingsStore.retainedRecordingCountOptions, id: \.self) { count in
+                            Text(count == 0 ? tr("不保留录音") : tr("%lld 条", count)).tag(count)
+                        }
+                    }
+                    .labelsHidden().fixedSize().controlSize(.small).id(L10n.effective)
+                    .help(tr("仅最近的录音可以重新转录，文字历史不受此项影响"))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+            }
+            .disabled(!settings.keepHistory)
+            .opacity(settings.keepHistory ? 1 : 0.55)
 
             if history.entries.isEmpty {
                 SettingsCard {
@@ -1574,6 +1609,16 @@ private struct HistoryPane: View {
                 pendingDelete = nil
             }
             Button(tr("取消"), role: .cancel) { pendingDelete = nil }
+        }
+        .alert(tr("清空所有历史？"), isPresented: $showingClearConfirmation) {
+            Button(tr("清空"), role: .destructive) {
+                history.clear()
+                expandedIDs.removeAll()
+                visibleCount = 10
+            }
+            Button(tr("取消"), role: .cancel) {}
+        } message: {
+            Text(tr("所有转录文字和保留的录音都会从这台 Mac 删除，此操作无法撤销。"))
         }
     }
 

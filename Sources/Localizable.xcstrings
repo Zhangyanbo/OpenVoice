@@ -41,6 +41,26 @@
         }
       }
     },
+    "%lld 天": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld days"
+          }
+        }
+      }
+    },
+    "%lld 条": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld recordings"
+          }
+        }
+      }
+    },
     "%lld 秒": {
       "localizations": {
         "en": {
@@ -701,6 +721,16 @@
         }
       }
     },
+    "不保留录音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Don't Keep Recordings"
+          }
+        }
+      }
+    },
     "个性化": {
       "localizations": {
         "en": {
@@ -737,6 +767,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Cloud API keys are stored only in the macOS Keychain; local sources need no key. You don't need to choose a model when adding a source."
+          }
+        }
+      }
+    },
+    "仅最近的录音可以重新转录，文字历史不受此项影响": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Only the most recent recordings can be retranscribed; text history is unaffected."
           }
         }
       }
@@ -797,6 +837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Keep History"
+          }
+        }
+      }
+    },
+    "保留录音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recordings"
           }
         }
       }
@@ -1601,6 +1651,16 @@
         }
       }
     },
+    "所有转录文字和保留的录音都会从这台 Mac 删除，此操作无法撤销。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "All transcribed text and retained recordings will be deleted from this Mac. This cannot be undone."
+          }
+        }
+      }
+    },
     "打开系统设置": {
       "localizations": {
         "en": {
@@ -1777,6 +1837,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Data Boundary"
+          }
+        }
+      }
+    },
+    "文字历史": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text History"
           }
         }
       }
@@ -2511,6 +2581,16 @@
         }
       }
     },
+    "清空所有历史？": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear All History?"
+          }
+        }
+      }
+    },
     "点击下面的输入框，按 %@，说一句话，再按一次。": {
       "localizations": {
         "en": {
@@ -2937,6 +3017,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Read Selected Text"
+          }
+        }
+      }
+    },
+    "超过保留时长的文字记录和录音会自动删除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Text history and recordings older than this are deleted automatically."
           }
         }
       }

@@ -12,6 +12,10 @@ final class SettingsStore: ObservableObject {
     static let defaultLLMModel = "gpt-5.6-luna"
     static let defaultModelRequestTimeoutSeconds = 30
     static let modelRequestTimeoutOptions = [15, 30, 60, 120]
+    static let defaultTranscriptionHistoryRetentionDays = 7
+    static let transcriptionHistoryRetentionDayOptions = [1, 3, 7, 14, 30, 90]
+    static let defaultRetainedRecordingCount = 10
+    static let retainedRecordingCountOptions = [0, 5, 10, 20, 50, 100]
     /// 模型配置只保存稳定引用；动态目录与协议元数据另存为可丢弃缓存。
     private static let modelConfigurationSchemaVersion = 2
 
@@ -195,6 +199,15 @@ final class SettingsStore: ObservableObject {
 
     // MARK: - 历史
     @Published var keepHistory: Bool { didSet { defaults.set(keepHistory, forKey: "keepHistory") } }
+    @Published var transcriptionHistoryRetentionDays: Int {
+        didSet {
+            defaults.set(transcriptionHistoryRetentionDays,
+                         forKey: "transcriptionHistoryRetentionDays")
+        }
+    }
+    @Published var retainedRecordingCount: Int {
+        didSet { defaults.set(retainedRecordingCount, forKey: "retainedRecordingCount") }
+    }
 
     // MARK: - 调试
     /// 开启后在历史页显示最近一次请求详情
@@ -238,6 +251,14 @@ final class SettingsStore: ObservableObject {
         readSelectedText = defaults.object(forKey: "readSelectedText") as? Bool ?? true
         autoLearn = defaults.object(forKey: "autoLearn") as? Bool ?? true
         keepHistory = defaults.object(forKey: "keepHistory") as? Bool ?? true
+        let storedHistoryDays = defaults.object(forKey: "transcriptionHistoryRetentionDays") as? Int
+        transcriptionHistoryRetentionDays = storedHistoryDays.flatMap {
+            Self.transcriptionHistoryRetentionDayOptions.contains($0) ? $0 : nil
+        } ?? Self.defaultTranscriptionHistoryRetentionDays
+        let storedRecordingCount = defaults.object(forKey: "retainedRecordingCount") as? Int
+        retainedRecordingCount = storedRecordingCount.flatMap {
+            Self.retainedRecordingCountOptions.contains($0) ? $0 : nil
+        } ?? Self.defaultRetainedRecordingCount
         debugMode = defaults.object(forKey: "debugMode") as? Bool ?? false
         let provider = ModelProvider.defaultOpenAI
         let loadedProviders = Self.loadLossyArray(ModelProvider.self, from: defaults,
