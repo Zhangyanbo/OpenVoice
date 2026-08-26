@@ -49,7 +49,7 @@ targets:
       properties:
         CFBundleDisplayName: OpenVoice
         CFBundleIconFile: AppIcon
-        CFBundleShortVersionString: "0.4.1"
+        CFBundleShortVersionString: "0.4.2"
         CFBundleVersion: "1"
         LSUIElement: true
         NSMicrophoneUsageDescription: "语音输入需要使用麦克风录制你的声音。录音结束后立即停止访问。"
