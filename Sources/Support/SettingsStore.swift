@@ -292,8 +292,9 @@ final class SettingsStore: ObservableObject {
     }
 
     func addProvider(kind: ModelProviderKind, apiKey: String? = nil) -> ModelProvider {
-        // 本机只有一个 Ollama 服务，不允许创建无意义的重复实例。
-        if kind == .ollama, let existing = modelProviders.first(where: { $0.kind == .ollama }) {
+        // 本机来源没有可区分的账号或密钥，不创建重复实例。
+        if [.ollama, .appleIntelligence].contains(kind),
+           let existing = modelProviders.first(where: { $0.kind == kind }) {
             return existing
         }
         let ordinal = modelProviders.filter { $0.kind == kind }.count + 1
@@ -383,14 +384,21 @@ final class SettingsStore: ObservableObject {
         languageModels.removeAll { $0.providerID == provider.id }
         KeychainStore.deleteAPIKey(providerID: provider.id)
 
-        guard let replacement = modelProviders.first else { return }
+        let transcriptionReplacement = modelProviders.first {
+            !$0.kind.defaultPresets(for: .transcription).isEmpty
+        }
+        let languageReplacement = modelProviders.first {
+            !$0.kind.defaultPresets(for: .language).isEmpty
+        }
         if transcriptionModels.isEmpty,
-           let preset = replacement.kind.presets(for: .transcription).first {
+           let replacement = transcriptionReplacement,
+           let preset = replacement.kind.defaultPresets(for: .transcription).first {
             transcriptionModels = [ConfiguredModel(providerID: replacement.id, modelID: preset.id,
                                                    displayName: preset.displayName)]
         }
         if languageModels.isEmpty,
-           let preset = replacement.kind.presets(for: .language).first {
+           let replacement = languageReplacement,
+           let preset = replacement.kind.defaultPresets(for: .language).first {
             languageModels = [ConfiguredModel(providerID: replacement.id, modelID: preset.id,
                                               displayName: preset.displayName)]
         }

@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 import Combine
-import UniformTypeIdentifiers
+import Reorderable
 
 /// 设置窗口:左侧图标侧边栏 + 右侧卡片式分区。
 /// 视觉语言与悬浮条一致:克制、现代、低噪。
@@ -158,6 +158,7 @@ struct SettingsRootView: View {
 
 private struct UpdateSidebarButton: View {
     @ObservedObject var updater = UpdateManager.shared
+    @ObservedObject private var settings = SettingsStore.shared
     @State private var hovering = false
 
     var body: some View {
@@ -181,6 +182,7 @@ private struct UpdateSidebarButton: View {
                     .font(.system(size: 11.5, weight: isAvailable ? .semibold : .regular))
                     .foregroundStyle(isAvailable ? Color.blue : Color.secondary)
                     .lineLimit(2)
+                    .id(settings.appLanguage)
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 8)
@@ -745,7 +747,10 @@ private struct ModelsPane: View {
             }
             Button(tr("取消"), role: .cancel) { pendingModelRemoval = nil }
         } message: { pending in
-            Text(tr("将从回退顺序中移除 %@。", pending.model.displayName))
+            let kind = settings.modelProviders.first { $0.id == pending.model.providerID }?.kind
+            Text(tr("将从回退顺序中移除 %@。",
+                    pending.model.localizedDisplayName(providerKind: kind,
+                                                       capability: pending.capability)))
         }
         .onAppear {
             ollama.refresh()
@@ -758,18 +763,51 @@ private struct ModelsPane: View {
     private func modelCard(capability: ModelCapability, title: String, footer: String,
                            models: [ConfiguredModel]) -> some View {
         SettingsCard(title: title, footer: footer) {
-            ForEach(Array(models.enumerated()), id: \.element.id) { index, model in
-                if index > 0 { CardDivider() }
-                ModelPriorityRow(index: index, model: model,
-                                 provider: settings.modelProviders.first { $0.id == model.providerID },
-                                 capability: capability,
-                                 count: models.count,
-                                 moveUp: { move(capability, from: index, offset: -1) },
-                                 moveDown: { move(capability, from: index, offset: 1) },
-                                 remove: {
-                                     pendingModelRemoval = PendingModelRemoval(
-                                         capability: capability, model: model)
-                                 })
+            ReorderableVStack(models, onMove: { source, destination in
+                withAnimation(.smooth(duration: 0.2)) {
+                    reorder(capability, from: source, to: destination)
+                }
+            }) { model, isDragged in
+                ModelPriorityRow(
+                    index: models.firstIndex(where: { $0.id == model.id }) ?? 0,
+                    model: model,
+                    provider: settings.modelProviders.first { $0.id == model.providerID },
+                    capability: capability,
+                    count: models.count,
+                    moveUp: {
+                        move(capability,
+                             from: models.firstIndex(where: { $0.id == model.id }) ?? 0,
+                             offset: -1)
+                    },
+                    moveDown: {
+                        move(capability,
+                             from: models.firstIndex(where: { $0.id == model.id }) ?? 0,
+                             offset: 1)
+                    },
+                    remove: {
+                        pendingModelRemoval = PendingModelRemoval(
+                            capability: capability, model: model)
+                    }
+                )
+                .background {
+                    if isDragged {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .fill(Color(nsColor: .controlBackgroundColor))
+                    }
+                }
+                .overlay {
+                    if isDragged {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(Color.accentColor.opacity(0.28), lineWidth: 1)
+                    }
+                }
+                .overlay(alignment: .bottom) {
+                    if (models.firstIndex(where: { $0.id == model.id }) ?? 0) < models.count - 1 {
+                        Divider().padding(.leading, 12).opacity(0.6)
+                    }
+                }
+                .shadow(color: .black.opacity(isDragged ? 0.14 : 0), radius: 8, y: 3)
+                .animation(.easeOut(duration: 0.12), value: isDragged)
             }
             CardDivider()
             Button {
@@ -796,6 +834,24 @@ private struct ModelsPane: View {
             guard settings.languageModels.indices.contains(index),
                   settings.languageModels.indices.contains(target) else { return }
             settings.languageModels.swapAt(index, target)
+        }
+    }
+
+    private func reorder(_ capability: ModelCapability, from source: Int, to destination: Int) {
+        func reordered(_ models: [ConfiguredModel]) -> [ConfiguredModel] {
+            guard models.indices.contains(source), models.indices.contains(destination),
+                  source != destination else { return models }
+            var result = models
+            let moved = result.remove(at: source)
+            result.insert(moved, at: destination)
+            return result
+        }
+
+        switch capability {
+        case .transcription:
+            settings.transcriptionModels = reordered(settings.transcriptionModels)
+        case .language:
+            settings.languageModels = reordered(settings.languageModels)
         }
     }
 
@@ -830,6 +886,27 @@ private struct ModelPriorityRow: View {
     let remove: () -> Void
 
     var body: some View {
+        HStack(spacing: 0) {
+            draggableContent
+                .padding(.leading, 12)
+                .padding(.vertical, 8)
+                .contentShape(Rectangle())
+                .dragHandle()
+                .accessibilityAction(named: Text(tr("上移")), moveUp)
+                .accessibilityAction(named: Text(tr("下移")), moveDown)
+
+            Button(action: remove) {
+                Image(systemName: "minus.circle.fill").foregroundStyle(.tertiary)
+            }
+            .buttonStyle(.plain)
+            .disabled(count <= 1)
+            .help(tr("移除模型"))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+        }
+    }
+
+    private var draggableContent: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 10) {
                 Text("\(index + 1)")
@@ -838,7 +915,9 @@ private struct ModelPriorityRow: View {
                     .frame(width: 20, height: 20)
                     .background(Color.secondary.opacity(0.12), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(model.displayName).font(.system(size: 13))
+                    Text(model.localizedDisplayName(providerKind: provider?.kind,
+                                                    capability: capability))
+                        .font(.system(size: 13))
                     HStack(spacing: 8) {
                         Text(provider?.name ?? tr("模型来源已移除"))
                             .foregroundStyle(.secondary)
@@ -852,21 +931,17 @@ private struct ModelPriorityRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(spacing: 7) {
                     if provider?.kind == .ollama { ollamaControl }
-                    Button(action: moveUp) { Image(systemName: "chevron.up") }
-                        .disabled(index == 0).help(tr("上移"))
-                    Button(action: moveDown) { Image(systemName: "chevron.down") }
-                        .disabled(index + 1 >= count).help(tr("下移"))
-                    Button(action: remove) {
-                        Image(systemName: "minus.circle.fill").foregroundStyle(.tertiary)
-                    }
-                    .buttonStyle(.plain).disabled(count <= 1).help(tr("移除模型"))
+                    Image(systemName: "line.3.horizontal")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.tertiary)
+                        .frame(width: 18)
+                        .help(tr("拖动以调整顺序"))
                 }
-                .buttonStyle(.borderless)
                 .controlSize(.small)
             }
             if provider?.kind == .ollama { ollamaDetail }
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     @ViewBuilder private var ollamaControl: some View {
@@ -947,7 +1022,10 @@ private struct ProviderKeySheet: View {
                 .font(.system(size: 18, weight: .semibold))
 
             if provider == nil {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 155), spacing: 10)], spacing: 10) {
+                LazyVGrid(columns: [
+                    GridItem(.flexible(), spacing: 10),
+                    GridItem(.flexible(), spacing: 10),
+                ], spacing: 10) {
                     ForEach(ModelProviderKind.allCases) { item in
                         providerCard(item)
                     }
@@ -1015,6 +1093,8 @@ private struct ProviderKeySheet: View {
                 Text(item.displayName)
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .layoutPriority(1)
                 Spacer(minLength: 0)
                 Image(systemName: selected ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: 15, weight: .medium))
@@ -1047,7 +1127,7 @@ private struct ProviderKeySheet: View {
                 switch kind {
                 case .openAI: try await OpenAIClient(apiKey: candidate).validateKey()
                 case .google: try await GeminiClient(apiKey: candidate).validateKey()
-                case .ollama: break
+                case .ollama, .appleIntelligence: break
                 case .openCodeZen, .openCodeGo:
                     try await OpenCodeClient(providerID: provider?.id ?? "validation",
                                              kind: kind, apiKey: candidate).validateKey()
@@ -1882,7 +1962,7 @@ private struct HistoryModelDetails: View {
                         .background(Color.secondary.opacity(0.11), in: Circle())
                     VStack(alignment: .leading, spacing: 2) {
                         HStack(spacing: 6) {
-                            Text(attempt.modelName)
+                            Text(attempt.localizedModelName)
                                 .font(.system(size: 11.5, weight: .medium))
                             Text(attempt.succeeded ? tr("成功") : tr("失败"))
                                 .font(.system(size: 9.5, weight: .semibold))

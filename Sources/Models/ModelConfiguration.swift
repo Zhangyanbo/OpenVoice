@@ -6,6 +6,7 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
     case openAI
     case google
     case ollama
+    case appleIntelligence
     case openCodeZen
     case openCodeGo
 
@@ -16,12 +17,18 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .openAI: return "OpenAI"
         case .google: return "Google"
         case .ollama: return "Ollama"
+        case .appleIntelligence: return "Apple Intelligence"
         case .openCodeZen: return "OpenCode Zen"
         case .openCodeGo: return "OpenCode Go"
         }
     }
 
-    var requiresAPIKey: Bool { self != .ollama }
+    var requiresAPIKey: Bool {
+        switch self {
+        case .ollama, .appleIntelligence: return false
+        default: return true
+        }
+    }
 
     var isOpenCode: Bool {
         self == .openCodeZen || self == .openCodeGo
@@ -76,6 +83,22 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
                 ModelPreset(id: "gemma4:e2b-it-qat", displayName: "Gemma 4 E2B (QAT)"),
                 ModelPreset(id: "gemma4:e4b-it-qat", displayName: "Gemma 4 E4B (QAT)"),
             ]
+        case (.appleIntelligence, .transcription):
+            return [
+                ModelPreset(
+                    id: AppleIntelligenceClient.speechModelID,
+                    displayName: tr("Apple 语音转录"),
+                    detail: tr("使用 macOS 26 内置语音模型；自动识别时跟随系统语言")
+                ),
+            ]
+        case (.appleIntelligence, .language):
+            return [
+                ModelPreset(
+                    id: AppleIntelligenceClient.languageModelID,
+                    displayName: "Apple Intelligence",
+                    detail: tr("使用 macOS 26 内置基础模型整理或翻译文字")
+                ),
+            ]
         case (.openCodeZen, _), (.openCodeGo, _):
             return OpenCodeModelCatalog.fallbackPresets(kind: self, capability: capability)
         }
@@ -95,6 +118,9 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case (.ollama, .transcription), (.ollama, .language):
             // 首次添加只启用更轻的 E2B；E4B 可在设置中手动加入回退链。
             return Array(presets(for: capability).prefix(1))
+        case (.appleIntelligence, .transcription), (.appleIntelligence, .language):
+            // Apple Intelligence 只在设置页由用户手动加入，不自动改变现有模型链。
+            return []
         case (.openCodeZen, .transcription):
             return presets(for: capability).filter {
                 ["gemini-3.5-flash-lite", "mimo-v2.5-free"].contains($0.id)
@@ -120,6 +146,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("在 Google AI Studio 创建。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
         case .ollama:
             return nil
+        case .appleIntelligence:
+            return nil
         case .openCodeZen, .openCodeGo:
             return tr("在 opencode.ai 获取。Key 只保存在 macOS 钥匙串中，不写入配置文件，不进入日志。")
         }
@@ -132,6 +160,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
         case .google:
             return URL(string: "https://aistudio.google.com/api-keys")!
         case .ollama:
+            return nil
+        case .appleIntelligence:
             return nil
         case .openCodeZen, .openCodeGo:
             return URL(string: "https://opencode.ai/auth")!
@@ -146,6 +176,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("使用 Gemini 多模态模型完成转录和后处理，兼顾成本、速度与多语言能力。")
         case .ollama:
             return tr("通过本机 Ollama 运行模型，无需 API Key。请先在 Ollama 中下载所选模型。")
+        case .appleIntelligence:
+            return tr("在 macOS 26 上使用 Apple 的本地语音转录和 Apple Intelligence 整理文字；无需 API Key。")
         case .openCodeZen:
             return tr("按量使用 OpenCode 精选模型；模型目录会自动更新，并按各模型的原生协议分流。")
         case .openCodeGo:
@@ -182,6 +214,8 @@ enum ModelProviderKind: String, Codable, CaseIterable, Identifiable, Hashable {
             return tr("输入 $%@ · 输出 $%@/百万 token", "0.75", "3.75")
         case (.ollama, _, _):
             return tr("本地运行")
+        case (.appleIntelligence, _, _):
+            return tr("本地运行")
         case (.openCodeZen, _, _):
             return tr("OpenCode Zen 按量计费")
         case (.openCodeGo, _, _):
@@ -209,6 +243,16 @@ struct ModelAttempt: Codable, Equatable, Identifiable {
     var modelName: String
     var succeeded: Bool
     var failureReason: String?
+
+    /// 历史记录中会保留当时的显示名。Apple 模型名由稳定 ID 动态本地化，
+    /// 因此旧记录也能立即跟随界面语言。
+    var localizedModelName: String {
+        switch modelID {
+        case AppleIntelligenceClient.speechModelID: return tr("Apple 语音转录")
+        case AppleIntelligenceClient.languageModelID: return "Apple Intelligence"
+        default: return modelName
+        }
+    }
 }
 
 struct ModelExecutionResult {
@@ -256,5 +300,13 @@ struct ConfiguredModel: Codable, Identifiable, Equatable {
         self.providerID = providerID
         self.modelID = modelID
         self.displayName = displayName ?? modelID
+    }
+
+    /// Apple 内置模型的旧配置可能已经持久化了某一种界面语言的名称。
+    /// 显示时按稳定 model ID 重新本地化，不改写用户数据，也兼容旧版配置。
+    func localizedDisplayName(providerKind: ModelProviderKind?, capability: ModelCapability) -> String {
+        guard providerKind == .appleIntelligence else { return displayName }
+        return ModelProviderKind.appleIntelligence.presets(for: capability)
+            .first(where: { $0.id == modelID })?.displayName ?? displayName
     }
 }

@@ -99,11 +99,14 @@ enum ModelRouter {
                 if hasNextModel { await onFallback?() }
                 continue
             }
+            let modelName = model.localizedDisplayName(providerKind: provider.kind,
+                                                       capability: capability)
             guard !provider.kind.requiresAPIKey
                     || KeychainStore.loadAPIKey(providerID: provider.id) != nil else {
                 lastReason = tr("%@ 尚未设置 API Key。", provider.name)
                 attempts.append(attempt(model: model, providerName: provider.name,
-                                        capability: capability, succeeded: false, reason: lastReason))
+                                        capability: capability, succeeded: false, reason: lastReason,
+                                        modelName: modelName))
                 if hasNextModel { await onFallback?() }
                 continue
             }
@@ -114,24 +117,26 @@ enum ModelRouter {
                     group.addTask { try await operation(client, model) }
                     group.addTask {
                         try await Task.sleep(nanoseconds: timeoutNanoseconds)
-                        throw AttemptError.timeout(model.displayName, timeoutSeconds)
+                        throw AttemptError.timeout(modelName, timeoutSeconds)
                     }
                     guard let result = try await group.next() else {
-                        throw AttemptError.empty(model.displayName)
+                        throw AttemptError.empty(modelName)
                     }
                     group.cancelAll()
                     return result
                 }
                 guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                    throw AttemptError.empty(model.displayName)
+                    throw AttemptError.empty(modelName)
                 }
                 attempts.append(attempt(model: model, providerName: provider.name,
-                                        capability: capability, succeeded: true, reason: nil))
+                                        capability: capability, succeeded: true, reason: nil,
+                                        modelName: modelName))
                 return ModelExecutionResult(text: text, attempts: attempts)
             } catch {
                 lastReason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                 attempts.append(attempt(model: model, providerName: provider.name,
-                                        capability: capability, succeeded: false, reason: lastReason))
+                                        capability: capability, succeeded: false, reason: lastReason,
+                                        modelName: modelName))
                 NSLog("模型 %@（%@）请求失败，尝试下一个：%@",
                       model.modelID, provider.kind.rawValue, lastReason)
                 if hasNextModel { await onFallback?() }
@@ -147,11 +152,11 @@ enum ModelRouter {
 
     private static func attempt(model: ConfiguredModel, providerName: String,
                                 capability: ModelCapability, succeeded: Bool,
-                                reason: String?) -> ModelAttempt {
+                                reason: String?, modelName: String? = nil) -> ModelAttempt {
         ModelAttempt(capability: capability,
                      providerName: providerName,
                      modelID: model.modelID,
-                     modelName: model.displayName,
+                     modelName: modelName ?? model.displayName,
                      succeeded: succeeded,
                      failureReason: reason)
     }
@@ -170,6 +175,8 @@ enum ModelRouter {
             return GeminiClient(apiKey: key)
         case .ollama:
             return OllamaClient()
+        case .appleIntelligence:
+            return AppleIntelligenceClient()
         case .openCodeZen, .openCodeGo:
             guard let key = KeychainStore.loadAPIKey(providerID: provider.id) else {
                 throw OpenCodeClient.ClientError.noAPIKey

@@ -28,5 +28,7 @@
 	<string>© 2026 Yanbo Zhang · PolyForm Noncommercial 1.0.0</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>语音输入需要使用麦克风录制你的声音。录音结束后立即停止访问。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>使用 Apple 本地语音模型将录音转换为文字。</string>
 </dict>
 </plist>

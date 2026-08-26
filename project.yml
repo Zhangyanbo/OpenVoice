@@ -4,11 +4,16 @@ options:
   # 开发语言为中文:源码中的中文字符串是本地化 key,en 翻译在 String Catalog 中维护
   developmentLanguage: zh-Hans
   deploymentTarget:
-    macOS: "14.0"
+    macOS: "15.0"
+packages:
+  Reorderable:
+    path: Vendor/Reorderable
 targets:
   OpenVoice:
     type: application
     platform: macOS
+    dependencies:
+      - package: Reorderable
     sources:
       - Sources
     postBuildScripts:
@@ -53,6 +58,7 @@ targets:
         CFBundleVersion: "1"
         LSUIElement: true
         NSMicrophoneUsageDescription: "语音输入需要使用麦克风录制你的声音。录音结束后立即停止访问。"
+        NSSpeechRecognitionUsageDescription: "使用 Apple 本地语音模型将录音转换为文字。"
         NSHumanReadableCopyright: "© 2026 Yanbo Zhang · PolyForm Noncommercial 1.0.0"
     settings:
       base:
@@ -68,6 +74,9 @@ targets:
         ENABLE_APP_SANDBOX: NO
         COMBINE_HIDPI_IMAGES: YES
         GENERATE_INFOPLIST_FILE: NO
+        # FoundationModels 只存在于 macOS 26+。Apple 模型不做旧系统回退，
+        # 但框架必须弱链接，不能让其他模型来源也无法在旧系统启动。
+        OTHER_LDFLAGS: "$(inherited) -weak_framework FoundationModels"
         # 图标生成脚本要读 icon/ 写入 app 包,不能开脚本沙箱
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_STRICT_CONCURRENCY: minimal

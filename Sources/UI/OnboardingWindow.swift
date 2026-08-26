@@ -123,7 +123,7 @@ private struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text(tr("添加模型来源")).font(.title2.bold())
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), spacing: 12)], spacing: 12) {
-                    ForEach(ModelProviderKind.allCases) { kind in
+                    ForEach(ModelProviderKind.allCases.filter { $0 != .appleIntelligence }) { kind in
                         let configured = configuredProviderKinds.contains(kind)
                         Button {
                             if !configured { editingProviderKind = kind }
@@ -335,7 +335,7 @@ private struct OnboardingProviderKeySheet: View {
                 switch kind {
                 case .openAI: try await OpenAIClient(apiKey: key).validateKey()
                 case .google: try await GeminiClient(apiKey: key).validateKey()
-                case .ollama: break
+                case .ollama, .appleIntelligence: break
                 case .openCodeZen, .openCodeGo:
                     try await OpenCodeClient(providerID: "onboarding-validation",
                                              kind: kind, apiKey: key).validateKey()

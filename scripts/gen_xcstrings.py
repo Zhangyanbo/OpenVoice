@@ -154,6 +154,7 @@ PAIRS = {
     "语音识别成功后，按从上到下的顺序尝试整理或翻译。":
         "After transcription succeeds, models are tried from top to bottom for polishing or translation.",
     "添加模型": "Add Model",
+    "拖动以调整顺序": "Drag to reorder",
     "全部": "All",
     "其他": "Other",
     "免费": "Free",
@@ -312,9 +313,9 @@ PAIRS = {
     # 悬浮条
     "正在聆听": "Listening",
     "剩余 %d:%02d": "%d:%02d left",
-    "正在转录…": "Transcribing…",
-    "正在处理…": "Post-processing…",
-    "处理完成": "Processing Complete",
+    "正在转录…": "Transcribing",
+    "正在处理…": "Reasoning",
+    "处理完成": "Done",
     "重试": "Retry",
     "关闭": "Close",
     # 引导
@@ -339,7 +340,34 @@ PAIRS = {
         "Uses Gemini multimodal models for transcription and post-processing, balancing cost, speed, and multilingual support.",
     "通过本机 Ollama 运行模型，无需 API Key。请先在 Ollama 中下载所选模型。":
         "Runs models through Ollama on this Mac with no API key. Download the selected model in Ollama first.",
+    "在 macOS 26 上使用 Apple 的本地语音转录和 Apple Intelligence 整理文字；无需 API Key。":
+        "Uses Apple's on-device speech transcription and Apple Intelligence text processing on macOS 26. No API key required.",
+    "Apple 语音转录": "Apple Speech Transcription",
+    "使用 macOS 26 内置语音模型；自动识别时跟随系统语言":
+        "Uses the built-in macOS 26 speech model; Auto follows the system language",
+    "使用 macOS 26 内置基础模型整理或翻译文字":
+        "Uses the built-in macOS 26 foundation model to polish or translate text",
     "本地运行": "Runs locally",
+    "Apple Intelligence 模型需要 macOS 26 或更高版本。":
+        "Apple Intelligence models require macOS 26 or later.",
+    "Apple Intelligence 不支持模型 %@。":
+        "Apple Intelligence does not support model %@.",
+    "未获得语音识别权限，请在系统设置中允许 OpenVoice 使用语音识别。":
+        "Speech recognition permission was not granted. Allow OpenVoice to use Speech Recognition in System Settings.",
+    "Apple 本地语音转录在这台 Mac 上不可用。":
+        "Apple's on-device speech transcription is unavailable on this Mac.",
+    "Apple 本地语音转录不支持语言 %@。":
+        "Apple's on-device speech transcription does not support %@.",
+    "Apple 语音模型资源不可用或无法安装。":
+        "Apple speech model assets are unavailable or could not be installed.",
+    "这台 Mac 不支持 Apple Intelligence。":
+        "This Mac does not support Apple Intelligence.",
+    "Apple Intelligence 尚未在系统设置中开启。":
+        "Apple Intelligence is not enabled in System Settings.",
+    "Apple Intelligence 模型尚未准备完成，请稍后重试。":
+        "The Apple Intelligence model is not ready yet. Try again later.",
+    "Apple Intelligence 当前不可用。":
+        "Apple Intelligence is currently unavailable.",
     "无法连接 Ollama。请确认 Ollama 已安装并正在运行。":
         "Could not connect to Ollama. Make sure Ollama is installed and running.",
     "Ollama 请求失败（%lld）：%@": "Ollama request failed (%lld): %@",

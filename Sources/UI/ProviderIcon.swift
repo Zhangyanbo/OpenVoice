@@ -23,6 +23,7 @@ struct ProviderIcon: View {
         case .openAI: return 0
         case .google: return size * 0.19
         case .ollama: return size * 0.20
+        case .appleIntelligence: return size * 0.20
         case .openCodeZen, .openCodeGo: return size * 0.19
         }
     }
@@ -47,6 +48,11 @@ struct ProviderIcon: View {
                 .renderingMode(.template)
                 .resizable()
                 .interpolation(.high)
+                .scaledToFit()
+                .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.14))
+        case .appleIntelligence:
+            Image(systemName: "apple.logo")
+                .resizable()
                 .scaledToFit()
                 .foregroundStyle(Color(red: 0.12, green: 0.13, blue: 0.14))
         case .openCodeZen:

@@ -526,6 +526,7 @@ struct RecordingBarView: View {
             Text(label)
                 .font(.system(size: 12.5, weight: .medium))
                 .foregroundStyle(.white.opacity(0.85))
+                .lineLimit(1)
         }
     }
 
