@@ -88,7 +88,7 @@ final class DictationController {
     private var failedAttempt: FailedAttempt?
 
     private var session: (mode: Mode, context: DictationContext, target: InsertionTarget?)?
-    /// AX 复制菜单降级最多需要等待约 0.3 秒；等待期间防止重复启动。
+    /// 菜单复制降级是异步的；等待期间防止重复启动。
     private var isPreparingRecording = false
 
     // MARK: - 最长录音时长

@@ -2,30 +2,43 @@ import XCTest
 @testable import OpenVoice
 
 final class AXContextReaderTests: XCTestCase {
-    func testSelectedSubstringUsesAXUTF16Range() {
-        let value = "A🙂选中文字B"
-        let nsRange = (value as NSString).range(of: "🙂选中文字")
-        let range = CFRange(location: nsRange.location, length: nsRange.length)
+    func testCopyFallbackDoesNotRequireFocusedElement() {
+        let target = InsertionTarget(pid: 1, element: nil, selectionRange: nil)
 
-        XCTAssertEqual(
-            AXContextReader.selectedSubstring(in: value, range: range),
-            "🙂选中文字"
-        )
+        XCTAssertTrue(AXContextReader.shouldUseCopyFallback(
+            readSelectedText: true,
+            selectedText: nil,
+            target: target
+        ))
     }
 
-    func testSelectedSubstringRejectsEmptyAndInvalidRanges() {
-        XCTAssertNil(
-            AXContextReader.selectedSubstring(
-                in: "原文",
-                range: CFRange(location: 1, length: 0)
-            )
+    func testCopyFallbackSkipsKnownSecureField() {
+        let target = InsertionTarget(
+            pid: 1,
+            element: nil,
+            selectionRange: nil,
+            isSecureTextField: true
         )
-        XCTAssertNil(
-            AXContextReader.selectedSubstring(
-                in: "原文",
-                range: CFRange(location: 1, length: 10)
-            )
-        )
+
+        XCTAssertFalse(AXContextReader.shouldUseCopyFallback(
+            readSelectedText: true,
+            selectedText: nil,
+            target: target
+        ))
     }
 
+    func testCopyFallbackSkipsExistingSelectionAndMissingTarget() {
+        let target = InsertionTarget(pid: 1, element: nil, selectionRange: nil)
+
+        XCTAssertFalse(AXContextReader.shouldUseCopyFallback(
+            readSelectedText: true,
+            selectedText: "已有选区",
+            target: target
+        ))
+        XCTAssertFalse(AXContextReader.shouldUseCopyFallback(
+            readSelectedText: true,
+            selectedText: nil,
+            target: nil
+        ))
+    }
 }

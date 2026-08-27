@@ -21,7 +21,7 @@ enum TextInserter {
         log("目标：pid=\(target?.pid.description ?? "无") 控件=\(target?.element != nil ? "有" : "无")")
         // 先把焦点还给原来的 App(网络请求期间用户可能切走了)
         reactivateIfNeeded(target: target) {
-            if target?.selectionCapturedByCopy == true {
+            if target?.requiresPasteInsertion == true {
                 // AX 无法描述原选区，直接 AX 写入只会落到光标处；保留原选区并用粘贴替换。
                 log("选区由复制菜单取得，直接走粘贴替换")
                 pasteInsert(text, target: target, completion: completion)
@@ -85,7 +85,7 @@ enum TextInserter {
 
     private static func pasteInsert(_ text: String, target: InsertionTarget?, completion: @escaping (Result) -> Void) {
         let pasteboard = NSPasteboard.general
-        let saved = PasteboardPreserver.snapshot(pasteboard)
+        let saved = snapshot(pasteboard)
 
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
@@ -100,9 +100,7 @@ enum TextInserter {
 
         // 粘贴在目标 App 里是异步完成的,过早恢复剪贴板会粘到旧内容
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            if !PasteboardPreserver.restore(saved) {
-                log("剪贴板恢复失败")
-            }
+            restore(items: saved)
             completion(.inserted(method: .paste))
         }
     }
@@ -132,6 +130,45 @@ enum TextInserter {
         app.activate()
         // 给窗口切换留一点时间
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: run)
+    }
+
+    // MARK: - 剪贴板快照/恢复
+
+    private static func snapshot(_ pasteboard: NSPasteboard) -> [[String: Data]] {
+        (pasteboard.pasteboardItems ?? []).map { item in
+            var entry: [String: Data] = [:]
+            for type in item.types {
+                if let data = item.data(forType: type) { entry[type.rawValue] = data }
+            }
+            return entry
+        }
+    }
+
+    private static func restore(items: [[String: Data]]) {
+        // 底层 Pasteboard API 原样恢复 flavor，避免重新解析文件 URL 时同步访问磁盘。
+        var rawPasteboard: Pasteboard?
+        guard PasteboardCreate(kPasteboardClipboard as CFString, &rawPasteboard) == noErr,
+              let rawPasteboard else {
+            log("剪贴板恢复失败（无法打开系统剪贴板）")
+            return
+        }
+        guard PasteboardClear(rawPasteboard) == noErr else {
+            log("剪贴板恢复失败（无法清空临时文本）")
+            return
+        }
+        guard !items.isEmpty else { return }
+
+        for (index, entry) in items.enumerated() {
+            guard let itemID = UnsafeMutableRawPointer(bitPattern: index + 1) else { continue }
+            for (type, data) in entry {
+                let status = PasteboardPutItemFlavor(rawPasteboard, itemID,
+                                                     type as CFString, data as CFData,
+                                                     PasteboardFlavorFlags(rawValue: 0))
+                if status != noErr {
+                    log("剪贴板类型恢复失败（type=\(type), err=\(status)）")
+                }
+            }
+        }
     }
 
 }

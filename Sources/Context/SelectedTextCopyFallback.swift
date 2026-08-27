@@ -22,11 +22,9 @@ enum SelectedTextCopyFallback {
                     strategy: .menuAction
                 )
                 guard let text, !text.isEmpty else {
-                    NSLog("SelectedTextCopyFallback: menu action returned no text")
                     completion(nil)
                     return
                 }
-                NSLog("SelectedTextCopyFallback: menu action captured %d characters", text.count)
                 completion(text)
             } catch {
                 NSLog("SelectedTextCopyFallback: menu action failed: %@", error.localizedDescription)
