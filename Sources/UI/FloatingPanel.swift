@@ -23,6 +23,8 @@ final class PanelModel: ObservableObject {
     @Published var processingProgress: Double = 0
     @Published var fallbackFlash = false
     @Published var processingComplete = false
+    /// 显示在主胶囊上方的当次请求提醒。
+    @Published var notice: String?
     /// 非空表示翻译模式:(当前目标语言, 可选语言列表)
     @Published var translation: (current: String, options: [String])?
 
@@ -98,7 +100,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         set { model.onDismissUpdate = newValue }
     }
 
-    func showListening(translation: (String, [String])?) {
+    func showListening(translation: (String, [String])?, notice: String? = nil) {
         cancelCompletionHide()
         stopProgressDriver()
         model.phase = .listening
@@ -109,6 +111,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         model.fallbackFlash = false
         model.processingComplete = false
         activeCapability = nil
+        model.notice = notice
         model.translation = translation.map { (current: $0.0, options: $0.1) }
         show()
     }
@@ -188,6 +191,8 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
     func showProcessingComplete() {
         stopProgressDriver()
         activeCapability = nil
+        // 当次请求已结束，不让截断提醒留到下次录音的首帧。
+        model.notice = nil
         model.phase = .processing
         model.fallbackFlash = false
         withAnimation(.easeOut(duration: progressSnapDuration)) {
@@ -219,6 +224,7 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         model.fallbackFlash = false
         model.processingComplete = false
         model.countdownSeconds = nil
+        model.notice = nil
         model.translation = nil
         activeCapability = nil
         show()
@@ -232,6 +238,8 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         cancelCompletionHide()
         stopProgressDriver()
         activeCapability = nil
+        model.notice = nil
+        hostView?.layoutSubtreeIfNeeded()
         guard let panel, panel.isVisible else { return }
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.18
@@ -288,6 +296,9 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
 
     private func show() {
         let panel = ensurePanel()
+        // SwiftUI 状态更新与 AppKit 窗口显示不在同一布局节拍；
+        // 显示前先刷新根视图，避免窗口短暂复用上次的提醒内容。
+        hostView?.layoutSubtreeIfNeeded()
         place(panel)
         if !panel.isVisible {
             panel.alphaValue = 0
@@ -409,10 +420,29 @@ struct RecordingBarView: View {
     @ObservedObject var updater = UpdateManager.shared
 
     var body: some View {
+        VStack(spacing: 6) {
+            if let notice = model.notice {
+                noticeView(notice)
+            }
+            pill
+        }
+        // 整体始终按理想尺寸布局，窗口再根据回报的尺寸调整。
+        .fixedSize()
+        .background(GeometryReader { proxy in
+            Color.clear.preference(key: PillSizeKey.self, value: proxy.size)
+        })
+        .onPreferenceChange(PillSizeKey.self) { size in
+            model.onSizeChange?(size)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.18), value: model.phaseKey)
+        .animation(.easeInOut(duration: 0.18), value: model.notice)
+    }
+
+    private var pill: some View {
         Group {
             if model.usesStableWidth {
-                phaseContent
-                    .frame(width: 104, alignment: .center)
+                phaseContent.frame(width: 104, alignment: .center)
             } else {
                 phaseContent
             }
@@ -440,19 +470,28 @@ struct RecordingBarView: View {
                     lineWidth: 1)
         }
         .environment(\.colorScheme, .dark)
-        // 胶囊始终按理想尺寸布局(不被窗口现有尺寸压缩截断),
-        // 布局后把实际尺寸回报给窗口去适配
-        .fixedSize()
-        .background(GeometryReader { proxy in
-            Color.clear.preference(key: PillSizeKey.self, value: proxy.size)
-        })
-        .onPreferenceChange(PillSizeKey.self) { size in
-            model.onSizeChange?(size)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.18), value: model.phaseKey)
         .animation(.linear(duration: 0.5), value: model.recordingProgress)
         .animation(.easeInOut(duration: 0.3), value: model.isRecordingWarning)
+    }
+
+    private func noticeView(_ message: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 10, weight: .semibold))
+            Text(message)
+                .font(.system(size: 11.5, weight: .medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color.orange.opacity(0.95))
+        .padding(.horizontal, 11)
+        .padding(.vertical, 6)
+        .background {
+            Capsule().fill(Color.black.opacity(0.72))
+        }
+        .overlay {
+            Capsule().strokeBorder(Color.orange.opacity(0.28), lineWidth: 1)
+        }
+        .environment(\.colorScheme, .dark)
     }
 
     @ViewBuilder private var phaseContent: some View {

@@ -264,7 +264,7 @@ struct ModelExecutionResult {
 /// ModelRouter.makeClient 中注册，有序回退与业务流程无需改动。
 protocol ModelProviderClient {
     func transcribe(wav: Data, model: String, prompt: String?, language: String?) async throws -> String
-    func chat(model: String, system: String, user: String, transcript: String) async throws -> String
+    func chat(model: String, system: String, user: String) async throws -> String
 }
 
 struct ModelPreset: Identifiable, Equatable {

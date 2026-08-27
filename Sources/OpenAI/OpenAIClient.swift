@@ -82,10 +82,9 @@ struct OpenAIClient: ModelProviderClient {
     /// 成本闸门:
     /// - reasoning_effort 固定 minimal——推理模型不传时默认 medium,
     ///   思考 token 隐藏计费,对听写这种轻任务纯属浪费;
-    /// - max_completion_tokens 按转录长度估算上限(含思考 token)。
+    /// - max_completion_tokens 按最终 system + user prompt 的估算 token 数的 2 倍设置。
     /// 非推理模型不认识 reasoning_effort 会返回 400,此时去掉该参数重试一次。
-    /// - Parameter transcript: 原始转录文本,用于估算输出上限
-    func chat(model: String, system: String, user: String, transcript: String) async throws -> String {
+    func chat(model: String, system: String, user: String) async throws -> String {
         var payload: [String: Any] = [
             "model": model,
             "messages": [
@@ -110,7 +109,7 @@ struct OpenAIClient: ModelProviderClient {
                     ],
                 ],
             ],
-            "max_completion_tokens": Self.outputTokenCeiling(forTranscript: transcript),
+            "max_completion_tokens": Self.outputTokenCeiling(system: system, user: user),
             "reasoning_effort": "minimal",
         ]
         do {
@@ -133,22 +132,25 @@ struct OpenAIClient: ModelProviderClient {
         try Self.checkHTTP(data: data, response: response)
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
-              let message = choices.first?["message"] as? [String: Any],
+              let choice = choices.first,
+              (choice["finish_reason"] as? String) != "length",
+              let message = choice["message"] as? [String: Any],
               let content = message["content"] as? String else { throw ClientError.badResponse }
 
-        // 从 JSON 中取出 text 字段;万一模型/网关不支持 json_schema 而返回了裸文本,
-        // 降级为原样使用,不让一次转录白白失败
-        if let contentData = content.data(using: .utf8),
-           let object = try? JSONSerialization.jsonObject(with: contentData) as? [String: Any],
-           let text = object["text"] as? String {
-            return text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let text = PostProcessingOutput.text(from: content) else {
+            throw ClientError.badResponse
         }
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return text
     }
 
-    /// 输出 token 上限估算:CJK 约 1 token/字,其余约 4 字符/token。
-    /// 3 倍余量覆盖翻译膨胀、列表化改写;+256 覆盖 JSON 结构与 minimal 档的少量思考 token
-    static func outputTokenCeiling(forTranscript text: String) -> Int {
+    /// 最终 prompt 的 token 粗略估算：CJK 约 1 token/字，其余约 4 字符/token。
+    /// 选区指令的口述转录往往很短，但完整 user prompt 包含需要变换的选中文字；
+    /// 因此统一按完整 system + user prompt 估算，再取 2 倍作为输出上限。
+    static func outputTokenCeiling(system: String, user: String) -> Int {
+        max(512, (estimatedTokenCount(system) + estimatedTokenCount(user)) * 2)
+    }
+
+    private static func estimatedTokenCount(_ text: String) -> Int {
         var cjk = 0, other = 0
         for scalar in text.unicodeScalars {
             switch scalar.value {
@@ -158,7 +160,7 @@ struct OpenAIClient: ModelProviderClient {
                 other += 1
             }
         }
-        return max(512, (cjk + (other + 3) / 4) * 3 + 256)
+        return cjk + (other + 3) / 4
     }
 
     private static func checkHTTP(data: Data, response: URLResponse) throws {

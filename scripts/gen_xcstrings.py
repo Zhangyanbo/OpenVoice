@@ -26,6 +26,8 @@ PAIRS = {
     "播放提示音": "Play Sounds",
     "录音开始与结束时": "When recording starts and ends",
     "显示语音悬浮条": "Show Floating Bar",
+    "选中文字过长，仅处理前 5,000 字。":
+        "The selection is too long; only the first 5,000 characters will be processed.",
     "单模型超时": "Per-Model Timeout",
     "超过此时间没有返回时，自动尝试下一个模型":
         "Automatically try the next model if no response arrives within this time",

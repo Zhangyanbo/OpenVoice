@@ -65,14 +65,34 @@ struct AppleIntelligenceClient: ModelProviderClient {
         )
     }
 
-    func chat(model: String, system: String, user: String, transcript: String) async throws -> String {
+    func chat(model: String, system: String, user: String) async throws -> String {
         guard model == Self.languageModelID else { throw ClientError.unsupportedModel(model) }
         guard #available(macOS 26.0, *) else { throw ClientError.requiresMacOS26 }
         return try await AppleIntelligenceRuntime.respond(
             system: system,
             user: user,
-            outputTokenLimit: min(4_096, OpenAIClient.outputTokenCeiling(forTranscript: transcript))
+            outputTokenLimit: min(4_096, OpenAIClient.outputTokenCeiling(system: system, user: user))
         )
+    }
+
+    static func nativeInstructions(from system: String) -> String {
+        system
+            .replacingOccurrences(
+                of: "- 以 JSON 输出，处理后的完整文本放在 text 字段中；text 里只有用于替换选区的正文，不含任何解释或前后缀。",
+                with: "- 将处理后的完整正文直接填入结构化输出的 text 属性；text 里只有用于替换选区的正文，不含任何解释或前后缀。"
+            )
+            .replacingOccurrences(
+                of: "- 以 JSON 输出，最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。",
+                with: "- 将最终正文直接填入结构化输出的 text 属性；text 里只有正文本身，不含任何解释或前后缀。"
+            )
+            .replacingOccurrences(
+                of: "- 以 JSON 输出，翻译后的最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。",
+                with: "- 将翻译后的最终正文直接填入结构化输出的 text 属性；text 里只有正文本身，不含任何解释或前后缀。"
+            ) + """
+
+        响应格式由系统的结构化生成约束负责。将最终正文直接填入 text 属性；
+        text 内不得再包含 JSON、Markdown 代码块、引号、说明或“下面是…”之类的前缀。
+        """
     }
 }
 
@@ -152,19 +172,7 @@ private enum AppleIntelligenceRuntime {
         // 通用提示词中的 JSON 要求是为云端 API schema 准备的。
         // Foundation Models 直接生成受约束的 Swift 类型，不应再让 text
         // 属性内嵌一层 JSON。
-        let appleInstructions = system
-            .replacingOccurrences(
-                of: "- 以 JSON 输出，最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。",
-                with: "- 将最终正文直接填入结构化输出的 text 属性；text 里只有正文本身，不含任何解释或前后缀。"
-            )
-            .replacingOccurrences(
-                of: "- 以 JSON 输出，翻译后的最终文本放在 text 字段中；text 里只有正文本身，不含任何解释或前后缀。",
-                with: "- 将翻译后的最终正文直接填入结构化输出的 text 属性；text 里只有正文本身，不含任何解释或前后缀。"
-            ) + """
-
-        响应格式由系统的结构化生成约束负责。将最终正文直接填入 text 属性；
-        text 内不得再包含 JSON、Markdown 代码块、引号、说明或“下面是…”之类的前缀。
-        """
+        let appleInstructions = AppleIntelligenceClient.nativeInstructions(from: system)
         let session = LanguageModelSession(model: model, instructions: appleInstructions)
         let options = GenerationOptions(
             sampling: .greedy,

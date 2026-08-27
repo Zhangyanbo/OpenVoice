@@ -68,12 +68,11 @@ enum ModelRouter {
         providers: [ModelProvider],
         system: String,
         user: String,
-        transcript: String,
         onFallback: (() async -> Void)? = nil
     ) async throws -> ModelExecutionResult {
         try await run(models: models, providers: providers, capability: .language,
                       onFallback: onFallback) { client, model in
-            try await client.chat(model: model.modelID, system: system, user: user, transcript: transcript)
+            try await client.chat(model: model.modelID, system: system, user: user)
         }
     }
 

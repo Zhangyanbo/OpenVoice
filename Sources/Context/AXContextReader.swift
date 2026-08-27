@@ -8,6 +8,8 @@ struct DictationContext {
     var bundleID: String?
     var windowTitle: String?
     var selectedText: String?
+    /// 选区超过可发送上限时为 true；界面必须提醒用户模型只会处理前半段。
+    var selectedTextWasTruncated = false
     var beforeCursor: String?
     var afterCursor: String?
     /// 页面/文档其他内容的有限采样(开头+结尾各一段,或窗口级兜底采样)
@@ -24,6 +26,7 @@ struct DictationContext {
         if let appName { lines.append("App：\(appName)") }
         if let windowTitle { lines.append("窗口标题：\(windowTitle)") }
         if let selectedText { lines.append("选中文字：\(selectedText)") }
+        if selectedTextWasTruncated { lines.append("选中文字已截断") }
         if let beforeCursor { lines.append("光标前：…\(beforeCursor)") }
         if let afterCursor { lines.append("光标后：\(afterCursor)…") }
         if let documentText { lines.append("页面/文档内容：\n\(documentText)") }
@@ -54,6 +57,7 @@ struct InsertionTarget {
 /// AX 优先读取上下文；选区属性缺失时，可在录音开始前通过 AX“复制”菜单做一次受控降级。
 /// 不截图、不 OCR、不申请屏幕录制，也不模拟 Cmd+C。
 enum AXContextReader {
+    static let selectedTextLimit = 5_000
     private static let beforeLimit = 1200
     private static let afterLimit = 600
     /// documentText 里附加的文档开头/结尾采样上限
@@ -84,7 +88,9 @@ enum AXContextReader {
                 return
             }
             var context = captured.0
-            context.selectedText = String(text.prefix(2000))
+            let limited = limitedSelectedText(text)
+            context.selectedText = limited.text
+            context.selectedTextWasTruncated = limited.wasTruncated
             let copiedTarget = InsertionTarget(
                 pid: target.pid,
                 element: target.element,
@@ -101,6 +107,11 @@ enum AXContextReader {
         target: InsertionTarget?
     ) -> Bool {
         readSelectedText && selectedText == nil && target?.isSecureTextField == false
+    }
+
+    static func limitedSelectedText(_ text: String) -> (text: String, wasTruncated: Bool) {
+        guard text.count > selectedTextLimit else { return (text, false) }
+        return (String(text.prefix(selectedTextLimit)), true)
     }
 
     /// 读取当前焦点处的 AX 上下文 + 插入目标。任何一步失败都静默降级。
@@ -150,7 +161,9 @@ enum AXContextReader {
         if settings.readSelectedText {
             let selectedText = stringAttr(element, kAXSelectedTextAttribute)
             if let selectedText, !selectedText.isEmpty {
-                context.selectedText = String(selectedText.prefix(2000))
+                let limited = limitedSelectedText(selectedText)
+                context.selectedText = limited.text
+                context.selectedTextWasTruncated = limited.wasTruncated
             }
         }
 

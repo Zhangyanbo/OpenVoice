@@ -41,4 +41,20 @@ final class AXContextReaderTests: XCTestCase {
             target: nil
         ))
     }
+
+    func testSelectedTextAtLimitIsNotTruncated() {
+        let source = String(repeating: "文", count: AXContextReader.selectedTextLimit)
+        let result = AXContextReader.limitedSelectedText(source)
+
+        XCTAssertEqual(result.text.count, 5_000)
+        XCTAssertFalse(result.wasTruncated)
+    }
+
+    func testSelectedTextOverLimitKeepsFirstFiveThousandCharacters() {
+        let source = String(repeating: "a", count: AXContextReader.selectedTextLimit) + "TAIL"
+        let result = AXContextReader.limitedSelectedText(source)
+
+        XCTAssertEqual(result.text, String(repeating: "a", count: 5_000))
+        XCTAssertTrue(result.wasTruncated)
+    }
 }
