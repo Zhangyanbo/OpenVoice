@@ -88,6 +88,8 @@ final class DictationController {
     private var failedAttempt: FailedAttempt?
 
     private var session: (mode: Mode, context: DictationContext, target: InsertionTarget?)?
+    /// AX 复制菜单降级最多需要等待约 0.3 秒；等待期间防止重复启动。
+    private var isPreparingRecording = false
 
     // MARK: - 最长录音时长
     private static let maxRecordingDuration: TimeInterval = 10 * 60
@@ -177,12 +179,22 @@ final class DictationController {
     }
 
     private func reallyStart(mode: Mode) {
-        guard case .idle = state else { return }
+        guard case .idle = state, !isPreparingRecording else { return }
+        isPreparingRecording = true
         failedAttempt = nil
         autoLearner.cancelObservation()
 
         // 在录音开始的瞬间采集上下文与插入目标(spec §5, §14)
-        let (context, target) = AXContextReader.capture(settings: settings)
+        AXContextReader.captureForRecording(settings: settings) { [weak self] context, target in
+            guard let self else { return }
+            self.isPreparingRecording = false
+            guard case .idle = self.state else { return }
+            self.beginRecording(mode: mode, context: context, target: target)
+        }
+    }
+
+    private func beginRecording(mode: Mode, context: DictationContext,
+                                target: InsertionTarget?) {
         session = (mode, context, target)
 
         do {

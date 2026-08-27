@@ -8,12 +8,16 @@ options:
 packages:
   Reorderable:
     path: Vendor/Reorderable
+  SelectedTextKit:
+    url: https://github.com/tisfeng/SelectedTextKit.git
+    from: 2.6.5
 targets:
   OpenVoice:
     type: application
     platform: macOS
     dependencies:
       - package: Reorderable
+      - package: SelectedTextKit
     sources:
       - Sources
     postBuildScripts:
