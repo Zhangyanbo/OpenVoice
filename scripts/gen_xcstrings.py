@@ -89,6 +89,11 @@ PAIRS = {
     "格式化程度": "Format Level",
     "控制输出文本的组织形式。最低保持说话时的自然分段，不添加任何结构；中等在内容适合列举时使用简单的项目符号或编号；最高则用小节标题、项目符号等完整层级来组织内容。":
         "Controls how the output text is organized. Low keeps the natural paragraphs of your speech without any added structure; Medium uses simple bullets or numbering when the content suits listing; High organizes content with a full hierarchy of section headings and bullet points.",
+    "自定义提示词": "Custom Prompts",
+    "在这里添加系统提示词": "Add a system prompt here",
+    "在这里添加用户提示词": "Add a user prompt here",
+    "填写的文字会另起一行，追加到对应提示词末尾，并随每次后处理请求发送。":
+        "Your text starts on a new line at the end of the corresponding prompt and is sent with each post-processing request.",
     "低": "Low",
     "中": "Medium",
     "高": "High",
@@ -295,6 +300,16 @@ PAIRS = {
     "删除": "Delete",
     "语音": "Voice",
     "翻译 → %@": "Translate → %@",
+    "查看请求详情": "View Request Details",
+    "语音识别请求详情": "Transcription Request Details",
+    "后处理请求详情": "Post-processing Request Details",
+    "音频输入": "Audio Input",
+    "识别语言": "Recognition Language",
+    "提示词参数": "Prompt Parameter",
+    "原始输出": "Raw Output",
+    "录音仍在本机保留": "The recording is still stored on this Mac",
+    "录音已按保留策略删除": "The recording has been deleted according to the retention policy",
+    "播放录音": "Play Recording",
     # 请求页
     "最近一次：%@": "Last: %@",
     "复制全部": "Copy All",

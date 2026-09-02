@@ -35,13 +35,12 @@ enum TextInserter {
         }
     }
 
-    /// 插入过程的决策轨迹,写入 LastRequestLog 供 设置→高级 排查
+    /// 插入过程的决策轨迹，仅写入本机统一日志。
     private static var trace: [String] = []
 
     private static func log(_ message: String) {
         trace.append(message)
         NSLog("TextInserter: \(message)")
-        LastRequestLog.shared.insertTrace = trace.joined(separator: "\n")
     }
 
     // MARK: - 路径 1:Accessibility 直接写入

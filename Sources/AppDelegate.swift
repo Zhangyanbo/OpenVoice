@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         SettingsStore.shared.applyAppearance()
+        SoundPlayer.prepare()
         setupStatusItem()
         setupHotkeys()
         setupAutoLearnToast()

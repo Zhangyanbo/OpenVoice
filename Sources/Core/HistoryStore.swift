@@ -10,6 +10,18 @@ import Combine
 ///   不依赖任何可能不发生的回调);
 /// - 启动时还会删除孤儿录音文件(对应历史条目已不存在),磁盘占用有硬上限。
 final class HistoryStore: ObservableObject {
+    /// 一次听写请求中值得长期保留的可读载荷。
+    /// 音频本体仍由 recordings/ 的独立保留策略管理，这里只记录其格式与大小，
+    /// 避免为了查看请求详情而绕过用户选择的录音保留数量。
+    struct RequestDetails: Codable, Equatable {
+        var audioByteCount: Int
+        var recognitionLanguage: String
+        var transcriptionPrompt: String?
+        var rawTranscript: String?
+        var systemPrompt: String?
+        var userPrompt: String?
+    }
+
     /// 重新转录所需的原始模式信息(历史条目里只存可编码的简单值)。
     /// context* 为录音瞬间的上下文快照,保证重新转录结果可复现;
     /// 全部可选——旧版本条目没有这些字段,解码为 nil 后回退到现场采集。
@@ -40,9 +52,12 @@ final class HistoryStore: ObservableObject {
         var modelAttempts: [ModelAttempt] = []
         /// 整体失败、回落到原始转录或重新转录失败时的说明。
         var detailMessage: String?
+        /// 语音识别的输入/原始输出，以及后处理模型收到的两段 prompt。
+        var requestDetails: RequestDetails?
 
         private enum CodingKeys: String, CodingKey {
-            case id, text, date, mode, appName, failed, retry, modelAttempts, detailMessage
+            case id, text, date, mode, appName, failed, retry, modelAttempts, detailMessage,
+                 requestDetails
         }
 
         /// 手写解码:旧版本历史文件没有 failed/retry 字段。
@@ -58,12 +73,14 @@ final class HistoryStore: ObservableObject {
             retry = try c.decodeIfPresent(RetryInfo.self, forKey: .retry)
             modelAttempts = try c.decodeIfPresent([ModelAttempt].self, forKey: .modelAttempts) ?? []
             detailMessage = try c.decodeIfPresent(String.self, forKey: .detailMessage)
+            requestDetails = try c.decodeIfPresent(RequestDetails.self, forKey: .requestDetails)
         }
 
         /// 自定义 init(from:) 会抑制逐成员构造器,这里显式提供
         init(text: String, mode: String, appName: String?,
              failed: Bool = false, retry: RetryInfo? = nil,
-             modelAttempts: [ModelAttempt] = [], detailMessage: String? = nil) {
+             modelAttempts: [ModelAttempt] = [], detailMessage: String? = nil,
+             requestDetails: RequestDetails? = nil) {
             self.id = UUID()
             self.text = text
             self.date = Date()
@@ -73,6 +90,7 @@ final class HistoryStore: ObservableObject {
             self.retry = retry
             self.modelAttempts = modelAttempts
             self.detailMessage = detailMessage
+            self.requestDetails = requestDetails
         }
     }
 
@@ -116,10 +134,12 @@ final class HistoryStore: ObservableObject {
 
     func add(text: String, mode: String, appName: String?,
              failed: Bool = false, wav: Data? = nil, retry: RetryInfo? = nil,
-             modelAttempts: [ModelAttempt] = [], detailMessage: String? = nil) {
+             modelAttempts: [ModelAttempt] = [], detailMessage: String? = nil,
+             requestDetails: RequestDetails? = nil) {
         guard !text.isEmpty || failed else { return }
         let entry = Entry(text: text, mode: mode, appName: appName, failed: failed, retry: retry,
-                          modelAttempts: modelAttempts, detailMessage: detailMessage)
+                          modelAttempts: modelAttempts, detailMessage: detailMessage,
+                          requestDetails: requestDetails)
         entries.insert(entry, at: 0)
 
         // 写录音文件(有新转录就顺手执行保留上限检查,清理不会漏)

@@ -54,7 +54,7 @@ struct InsertionTarget {
     }
 }
 
-/// AX 优先读取上下文；选区属性缺失时，可在录音开始前通过 AX“复制”菜单做一次受控降级。
+/// AX 优先读取上下文；选区属性缺失时，可在录音期间通过 AX“复制”菜单做一次受控降级。
 /// 不截图、不 OCR、不申请屏幕录制，也不模拟 Cmd+C。
 enum AXContextReader {
     static let selectedTextLimit = 5_000
@@ -67,12 +67,55 @@ enum AXContextReader {
     private static let windowWalkNodeLimit = 150
     private static let windowWalkCharLimit = 2000
 
-    /// 录音入口使用。先同步读取 AX；只有选区缺失时才异步执行一次复制菜单降级。
-    static func captureForRecording(
+    /// 录音入口的第一阶段：只记住当前 App、焦点控件和选区位置。
+    /// 这些是把结果写回原处的必需信息，应在麦克风启动前快速完成。
+    static func captureTarget(settings: SettingsStore) -> (DictationContext, InsertionTarget?) {
+        var context = DictationContext()
+        let frontApp = NSWorkspace.shared.frontmostApplication
+        if settings.useAppContext {
+            context.appName = frontApp?.localizedName
+            context.bundleID = frontApp?.bundleIdentifier
+        }
+
+        guard Permissions.accessibilityGranted, let pid = frontApp?.processIdentifier else {
+            return (context, nil)
+        }
+
+        let systemWide = AXUIElementCreateSystemWide()
+        var focusedRef: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString,
+                                            &focusedRef) == .success,
+              let focusedAny = focusedRef,
+              CFGetTypeID(focusedAny) == AXUIElementGetTypeID() else {
+            return (context, InsertionTarget(pid: pid, element: nil, selectionRange: nil))
+        }
+        let element = focusedAny as! AXUIElement
+
+        if stringAttr(element, kAXSubroleAttribute) == "AXSecureTextField" {
+            return (context, InsertionTarget(
+                pid: pid,
+                element: nil,
+                selectionRange: nil,
+                isSecureTextField: true
+            ))
+        }
+
+        return (context, InsertionTarget(
+            pid: pid,
+            element: element,
+            selectionRange: rangeAttr(element, kAXSelectedTextRangeAttribute)
+        ))
+    }
+
+    /// 录音入口的第二阶段：麦克风已启动后再补充完整上下文。
+    /// 选区属性缺失时，仍只通过 AX“复制”菜单异步降级。
+    static func captureContextForRecording(
         settings: SettingsStore,
+        initialContext: DictationContext,
+        target: InsertionTarget?,
         completion: @escaping (DictationContext, InsertionTarget?) -> Void
     ) {
-        let captured = capture(settings: settings)
+        let captured = captureContext(settings: settings, context: initialContext, target: target)
         guard shouldUseCopyFallback(
             readSelectedText: settings.readSelectedText,
             selectedText: captured.0.selectedText,
@@ -116,48 +159,30 @@ enum AXContextReader {
 
     /// 读取当前焦点处的 AX 上下文 + 插入目标。任何一步失败都静默降级。
     static func capture(settings: SettingsStore) -> (DictationContext, InsertionTarget?) {
-        var context = DictationContext()
+        let initial = captureTarget(settings: settings)
+        return captureContext(settings: settings, context: initial.0, target: initial.1)
+    }
 
-        let frontApp = NSWorkspace.shared.frontmostApplication
-        if settings.useAppContext {
-            context.appName = frontApp?.localizedName
-            context.bundleID = frontApp?.bundleIdentifier
-        }
-
-        guard Permissions.accessibilityGranted, let pid = frontApp?.processIdentifier else {
-            return (context, nil)
-        }
-
-        let systemWide = AXUIElementCreateSystemWide()
-        var focusedRef: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(systemWide, kAXFocusedUIElementAttribute as CFString, &focusedRef) == .success,
-              let focusedAny = focusedRef, CFGetTypeID(focusedAny) == AXUIElementGetTypeID() else {
+    private static func captureContext(
+        settings: SettingsStore,
+        context initialContext: DictationContext,
+        target: InsertionTarget?
+    ) -> (DictationContext, InsertionTarget?) {
+        var context = initialContext
+        guard let target else { return (context, nil) }
+        guard !target.isSecureTextField else { return (context, target) }
+        guard let element = target.element else {
             if settings.useAppContext {
-                context.windowTitle = frontWindowTitle(pid: pid)
+                context.windowTitle = frontWindowTitle(pid: target.pid)
             }
-            return (context, InsertionTarget(
-                pid: pid,
-                element: nil,
-                selectionRange: nil
-            ))
-        }
-        let element = focusedAny as! AXUIElement
-
-        // 密码框绝不读取，也不尝试复制菜单降级。
-        if stringAttr(element, kAXSubroleAttribute) == "AXSecureTextField" {
-            return (context, InsertionTarget(
-                pid: pid,
-                element: nil,
-                selectionRange: nil,
-                isSecureTextField: true
-            ))
+            return (context, target)
         }
 
         if settings.useAppContext {
-            context.windowTitle = windowTitle(of: element) ?? frontWindowTitle(pid: pid)
+            context.windowTitle = windowTitle(of: element) ?? frontWindowTitle(pid: target.pid)
         }
 
-        let range = rangeAttr(element, kAXSelectedTextRangeAttribute)
+        let range = target.selectionRange
         if settings.readSelectedText {
             let selectedText = stringAttr(element, kAXSelectedTextAttribute)
             if let selectedText, !selectedText.isEmpty {
@@ -188,15 +213,11 @@ enum AXContextReader {
         // 焦点控件读不到文字(不是输入框/编辑器)时,退到窗口级采样:
         // 页面里往往还有静态文本、列表、代码等其他可参考内容。
         if settings.readNearbyText, !hasFocusedValue, context.selectedText == nil,
-           let win = focusedWindowElement(pid: pid) {
+           let win = focusedWindowElement(pid: target.pid) {
             context.documentText = windowTextSample(window: win)
         }
 
-        return (context, InsertionTarget(
-            pid: pid,
-            element: element,
-            selectionRange: range
-        ))
+        return (context, target)
     }
 
     // MARK: - AX helpers

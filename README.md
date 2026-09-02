@@ -48,7 +48,7 @@ A few handy details:
 - **Command selected text**: select some text, press Fn and say "translate this into Chinese", "make it shorter", or "turn this into a list" — the selection is replaced in place;
 - **Translation language**: the target language can be switched temporarily from the floating bar; the default is configurable in Settings;
 - **Glossary**: add names, project names, and commonly misheard words under Settings → Glossary, and recognition will prefer your spelling;
-- **Transcription history**: menu bar icon → History; every entry can be copied with one click;
+- **Transcription history**: menu bar icon → History; every entry can be copied with one click or expanded to inspect the raw transcript and the prompts sent for post-processing;
 - **Context**: by default a small amount of text near the cursor is read to improve recognition; each item can be turned off individually under Settings → Privacy;
 - A single recording is capped at 10 minutes; during the last minute the floating bar shows a countdown, then transcribes automatically so nothing is lost.
 

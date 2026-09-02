@@ -161,6 +161,12 @@ final class SettingsStore: ObservableObject {
     // MARK: - 个性化
     @Published var editingEffort: EditingEffort { didSet { defaults.set(editingEffort.rawValue, forKey: "editingEffort") } }
     @Published var formatLevel: FormatLevel { didSet { defaults.set(formatLevel.rawValue, forKey: "formatLevel") } }
+    @Published var systemPromptSuffix: String {
+        didSet { defaults.set(systemPromptSuffix, forKey: "systemPromptSuffix") }
+    }
+    @Published var userPromptSuffix: String {
+        didSet { defaults.set(userPromptSuffix, forKey: "userPromptSuffix") }
+    }
 
     // MARK: - 通用
     /// 唯一的音效总开关:关掉后任何情况下都不出声
@@ -209,10 +215,6 @@ final class SettingsStore: ObservableObject {
         didSet { defaults.set(retainedRecordingCount, forKey: "retainedRecordingCount") }
     }
 
-    // MARK: - 调试
-    /// 开启后在历史页显示最近一次请求详情
-    @Published var debugMode: Bool { didSet { defaults.set(debugMode, forKey: "debugMode") } }
-
     // MARK: - 模型来源与模型回退链
     @Published var modelProviders: [ModelProvider] {
         didSet { saveCodable(modelProviders, forKey: "modelProviders") }
@@ -235,6 +237,8 @@ final class SettingsStore: ObservableObject {
         appearanceMode = AppearanceMode(rawValue: defaults.string(forKey: "appearanceMode") ?? "") ?? .system
         editingEffort = EditingEffort(rawValue: defaults.string(forKey: "editingEffort") ?? "") ?? .medium
         formatLevel = FormatLevel(rawValue: defaults.string(forKey: "formatLevel") ?? "") ?? .plain
+        systemPromptSuffix = defaults.string(forKey: "systemPromptSuffix") ?? ""
+        userPromptSuffix = defaults.string(forKey: "userPromptSuffix") ?? ""
         playSound = defaults.object(forKey: "playSound") as? Bool ?? true
         showPanel = defaults.object(forKey: "showPanel") as? Bool ?? true
         filterLocalAudio = defaults.object(forKey: "filterLocalAudio") as? Bool ?? false
@@ -259,7 +263,6 @@ final class SettingsStore: ObservableObject {
         retainedRecordingCount = storedRecordingCount.flatMap {
             Self.retainedRecordingCountOptions.contains($0) ? $0 : nil
         } ?? Self.defaultRetainedRecordingCount
-        debugMode = defaults.object(forKey: "debugMode") as? Bool ?? false
         let provider = ModelProvider.defaultOpenAI
         let loadedProviders = Self.loadLossyArray(ModelProvider.self, from: defaults,
                                                   key: "modelProviders")

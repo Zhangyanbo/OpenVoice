@@ -124,6 +124,10 @@ final class FloatingPanelController: NSObject, NSWindowDelegate {
         model.recordingProgress = min(1, max(0, progress))
     }
 
+    func updateNotice(_ notice: String?) {
+        model.notice = notice
+    }
+
     func showTranscribing(timeoutSeconds: Int? = nil) {
         cancelCompletionHide()
         activeRequestTimeout = TimeInterval(timeoutSeconds ?? settings.modelRequestTimeoutSeconds)

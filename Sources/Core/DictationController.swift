@@ -16,31 +16,6 @@ extension Notification.Name {
     static let retranscribeRequest = Notification.Name("retranscribeRequest")
 }
 
-/// 记录上次实际发送给 OpenAI 的上下文与术语提示,供"查看本次发送的上下文"(spec §18)。
-final class LastRequestLog: ObservableObject {
-    static let shared = LastRequestLog()
-    @Published var contextSummary: String = tr("（还没有发送过请求）")
-    @Published var termHint: String = ""
-    @Published var timestamp: Date?
-    /// 最近一次失败的完整错误信息(悬浮条上只显示截断版)
-    @Published var lastError: String?
-    @Published var lastErrorAt: Date?
-    /// 最近一次文字插入的决策轨迹(AX/粘贴路径,由 TextInserter 写入)
-    @Published var insertTrace: String = ""
-    /// 最近一次请求的完整 prompt 与回复,供设置 → 请求页查看
-    @Published var systemPrompt: String = ""
-    @Published var userPrompt: String = ""
-    @Published var transcript: String = ""
-    @Published var response: String = ""
-
-    func resetPayload() {
-        systemPrompt = ""
-        userPrompt = ""
-        transcript = ""
-        response = ""
-    }
-}
-
 /// 核心状态机:idle → recording → transcribing → idle。
 /// 所有模块在此编排。上下文/术语表都是可选增强,任何一环失败都不阻断主流程(spec §7–8)。
 final class DictationController {
@@ -87,7 +62,8 @@ final class DictationController {
     }
     private var failedAttempt: FailedAttempt?
 
-    private var session: (mode: Mode, context: DictationContext, target: InsertionTarget?)?
+    private var session: (id: UUID, mode: Mode, context: DictationContext,
+                          target: InsertionTarget?)?
     /// 菜单复制降级是异步的；等待期间防止重复启动。
     private var isPreparingRecording = false
 
@@ -144,6 +120,7 @@ final class DictationController {
             state = .idle
             session = nil
             panel.hide()
+            if settings.playSound { SoundPlayer.playFailure() }
         case .transcribing, .idle:
             break
         }
@@ -184,25 +161,46 @@ final class DictationController {
         failedAttempt = nil
         autoLearner.cancelObservation()
 
-        // 在录音开始的瞬间采集上下文与插入目标(spec §5, §14)
-        AXContextReader.captureForRecording(settings: settings) { [weak self] context, target in
+        // 先只记住写回结果必需的目标快照，避免完整上下文读取
+        // 阻塞“按 Fn → 启动麦克风 → 播放提示音”这条反馈链。
+        let initial = AXContextReader.captureTarget(settings: settings)
+        isPreparingRecording = false
+        guard case .idle = state else { return }
+
+        let sessionID = UUID()
+        guard beginRecording(mode: mode, context: initial.0, target: initial.1,
+                             sessionID: sessionID) else { return }
+
+        // 麦克风已经开始录音，再读取附近文字与复制菜单降级。
+        AXContextReader.captureContextForRecording(
+            settings: settings,
+            initialContext: initial.0,
+            target: initial.1
+        ) { [weak self] context, target in
             guard let self else { return }
-            self.isPreparingRecording = false
-            guard case .idle = self.state else { return }
-            self.beginRecording(mode: mode, context: context, target: target)
+            guard case .recording = self.state,
+                  var active = self.session,
+                  active.id == sessionID else { return }
+            active.context = context
+            active.target = target
+            self.session = active
+            if context.selectedTextWasTruncated {
+                self.panel.updateNotice(tr("选中文字过长，仅处理前 5,000 字。"))
+            }
         }
     }
 
     private func beginRecording(mode: Mode, context: DictationContext,
-                                target: InsertionTarget?) {
-        session = (mode, context, target)
+                                target: InsertionTarget?, sessionID: UUID) -> Bool {
+        session = (sessionID, mode, context, target)
 
         do {
             try recorder.start()
         } catch {
             session = nil
+            if settings.playSound { SoundPlayer.playFailure() }
             showError(tr("无法开始录音：%@", error.localizedDescription))
-            return
+            return false
         }
 
         state = .recording(mode)
@@ -219,6 +217,7 @@ final class DictationController {
                 panel.showListening(translation: (target, settings.targetLanguages), notice: notice)
             }
         }
+        return true
     }
 
     private func startRecordingTimer() {
@@ -271,10 +270,11 @@ final class DictationController {
             state = .idle
             self.session = nil
             panel.hide()
+            if settings.playSound { SoundPlayer.playFailure() }
             return
         }
 
-        if settings.playSound { SoundPlayer.playKeyClick() }
+        if settings.playSound { SoundPlayer.playEnd() }
         state = .transcribing
         panel.showTranscribing()
         process(wav: wav, mode: mode, context: session.context, target: outputTarget)
@@ -318,14 +318,13 @@ final class DictationController {
         let languageModels = settings.languageModels
         let requestTimeoutSeconds = settings.modelRequestTimeoutSeconds
 
-        // 请求详情只在 Debug 开启时记录,关闭后不保留任何请求痕迹
-        let debug = settings.debugMode
-        if debug {
-            LastRequestLog.shared.contextSummary = context.summary
-            LastRequestLog.shared.termHint = termHint.isEmpty ? tr("（无）") : termHint
-            LastRequestLog.shared.timestamp = Date()
-            LastRequestLog.shared.resetPayload()
-        }
+        var requestDetails = HistoryStore.RequestDetails(
+            audioByteCount: wav.count,
+            recognitionLanguage: recognitionLanguage,
+            transcriptionPrompt: termHint.isEmpty ? nil : termHint,
+            rawTranscript: nil,
+            systemPrompt: nil,
+            userPrompt: nil)
 
         // controller 与应用同生命周期,请求期间强持有以保证结果送达
         Task {
@@ -343,21 +342,20 @@ final class DictationController {
                     })
                 modelAttempts.append(contentsOf: transcription.attempts)
                 let raw = transcription.text
+                requestDetails.rawTranscript = raw
                 guard !raw.isEmpty else {
                     await MainActor.run { self.finishEmpty() }
                     return
                 }
-                if debug { LastRequestLog.shared.transcript = raw }
                 await Self.advancePanelToPostProcessing(timeoutSeconds: requestTimeoutSeconds)
                 let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
                                                effort: settings.editingEffort,
-                                               format: settings.formatLevel)
-                let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
-                if debug {
-                    LastRequestLog.shared.systemPrompt = system
-                    LastRequestLog.shared.userPrompt = user
-                }
-
+                                               format: settings.formatLevel,
+                                               suffix: settings.systemPromptSuffix)
+                let user = Self.userPrompt(mode: mode, context: context, transcript: raw,
+                                           suffix: settings.userPromptSuffix)
+                requestDetails.systemPrompt = system
+                requestDetails.userPrompt = user
                 // 轻量语言模型整理
                 var final = raw
                 do {
@@ -371,7 +369,6 @@ final class DictationController {
                         })
                     modelAttempts.append(contentsOf: processing.attempts)
                     final = processing.text
-                    if debug { LastRequestLog.shared.response = final }
                     if final.isEmpty { final = raw }
                 } catch {
                     modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
@@ -382,10 +379,12 @@ final class DictationController {
                     if case .dictation = mode, context.selectedText == nil { canFallbackToRaw = true }
                     guard canFallbackToRaw else {
                         let attemptsSnapshot = modelAttempts
+                        let requestSnapshot = requestDetails
                         await MainActor.run {
                             self.transcriptionFailed(wav: wav, mode: mode, context: context,
                                                      target: target, error: error,
-                                                     modelAttempts: attemptsSnapshot)
+                                                     modelAttempts: attemptsSnapshot,
+                                                     requestDetails: requestSnapshot)
                         }
                         return
                     }
@@ -398,17 +397,21 @@ final class DictationController {
                 let text = final
                 let attemptsSnapshot = modelAttempts
                 let detailSnapshot = detailMessage
+                let requestSnapshot = requestDetails
                 await MainActor.run {
                     self.insert(text: text, target: target, mode: mode, context: context, wav: wav,
-                                modelAttempts: attemptsSnapshot, detailMessage: detailSnapshot)
+                                modelAttempts: attemptsSnapshot, detailMessage: detailSnapshot,
+                                requestDetails: requestSnapshot)
                 }
             } catch {
                 modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
                 let attemptsSnapshot = modelAttempts
+                let requestSnapshot = requestDetails
                 await MainActor.run {
                     self.transcriptionFailed(wav: wav, mode: mode, context: context,
                                              target: target, error: error,
-                                             modelAttempts: attemptsSnapshot)
+                                             modelAttempts: attemptsSnapshot,
+                                             requestDetails: requestSnapshot)
                 }
             }
         }
@@ -475,7 +478,8 @@ final class DictationController {
 
     private func insert(text: String, target: InsertionTarget?, mode: Mode,
                         context: DictationContext, wav: Data,
-                        modelAttempts: [ModelAttempt], detailMessage: String?) {
+                        modelAttempts: [ModelAttempt], detailMessage: String?,
+                        requestDetails: HistoryStore.RequestDetails) {
         state = .idle
         if settings.keepHistory {
             let modeLabel: String
@@ -485,7 +489,8 @@ final class DictationController {
             }
             HistoryStore.shared.add(text: text, mode: modeLabel, appName: context.appName,
                                     failed: false, wav: wav, retry: retryInfo(for: mode, context: context),
-                                    modelAttempts: modelAttempts, detailMessage: detailMessage)
+                                    modelAttempts: modelAttempts, detailMessage: detailMessage,
+                                    requestDetails: requestDetails)
         }
         // 处理完成后让胶囊短暂展示 100%；文字插入本身无需等待动画。
         panel.showProcessingComplete()
@@ -496,6 +501,7 @@ final class DictationController {
                 // 恢复时在此按插入方式重新接上观察
                 break
             case .copiedToClipboardOnly:
+                if SettingsStore.shared.playSound { SoundPlayer.playFailure() }
                 ToastPanel.show(message: tr("无法自动输入，结果已复制到剪贴板。"))
             }
         }
@@ -504,17 +510,18 @@ final class DictationController {
     private func finishEmpty() {
         state = .idle
         panel.hide()
+        if settings.playSound { SoundPlayer.playFailure() }
     }
 
     private func transcriptionFailed(wav: Data, mode: Mode, context: DictationContext,
                                      target: InsertionTarget?, error: Error,
-                                     modelAttempts: [ModelAttempt]) {
+                                     modelAttempts: [ModelAttempt],
+                                     requestDetails: HistoryStore.RequestDetails) {
         state = .idle
         failedAttempt = FailedAttempt(wav: wav, mode: mode, context: context, target: target)
         let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         NSLog("转录失败：\(reason)")
-        LastRequestLog.shared.lastError = reason
-        LastRequestLog.shared.lastErrorAt = Date()
+        if settings.playSound { SoundPlayer.playFailure() }
         // 失败条目也进历史(带录音),用户可从历史栏重新转录,录音不会彻底丢失
         if settings.keepHistory {
             let modeLabel: String
@@ -524,7 +531,8 @@ final class DictationController {
             }
             HistoryStore.shared.add(text: "", mode: modeLabel, appName: context.appName,
                                     failed: true, wav: wav, retry: retryInfo(for: mode, context: context),
-                                    modelAttempts: modelAttempts, detailMessage: reason)
+                                    modelAttempts: modelAttempts, detailMessage: reason,
+                                    requestDetails: requestDetails)
         }
         panel.showError(tr("转录失败：%@", reason))
     }
@@ -535,18 +543,19 @@ final class DictationController {
     /// 成功 → 原地更新正文;任何失败 → 条目保持原样(旧内容绝不丢失)。
     func retranscribe(_ request: RetranscribeRequest) {
         let store = HistoryStore.shared
-        func finishWithFailure(_ error: Error?, attempts: [ModelAttempt] = []) {
+        func finishWithFailure(_ error: Error?, attempts: [ModelAttempt] = [],
+                               requestDetails: HistoryStore.RequestDetails? = nil) {
             DispatchQueue.main.async {
                 self.state = .idle
                 store.setRetranscribing(nil)
                 if let error {
                     let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     NSLog("重新转录失败：\(reason)")
-                    LastRequestLog.shared.lastError = reason
-                    LastRequestLog.shared.lastErrorAt = Date()
+                    if self.settings.playSound { SoundPlayer.playFailure() }
                     store.updateEntry(request.entryID) { entry in
                         entry.modelAttempts = attempts
                         entry.detailMessage = tr("重新转录失败：%@", reason)
+                        if let requestDetails { entry.requestDetails = requestDetails }
                     }
                 }
             }
@@ -576,13 +585,21 @@ final class DictationController {
         let providers = settings.modelProviders
         let transcriptionModels = settings.transcriptionModels
         let languageModels = settings.languageModels
+        let termHint = glossary.promptHint()
+        let recognitionLanguage = settings.recognitionLanguage
 
         Task {
             var modelAttempts: [ModelAttempt] = []
             var detailMessage: String?
+            var requestDetails = HistoryStore.RequestDetails(
+                audioByteCount: request.wav.count,
+                recognitionLanguage: recognitionLanguage,
+                transcriptionPrompt: termHint.isEmpty ? nil : termHint,
+                rawTranscript: nil,
+                systemPrompt: nil,
+                userPrompt: nil)
             // 转录+整理;返回空串表示转录结果为空。失败时抛错。
             func run() async throws -> String {
-                let termHint = glossary.promptHint()
                 let raw: String
                 do {
                     let transcription = try await ModelRouter.transcribe(
@@ -593,6 +610,7 @@ final class DictationController {
                         language: settings.recognitionLanguage)
                     modelAttempts.append(contentsOf: transcription.attempts)
                     raw = transcription.text
+                    requestDetails.rawTranscript = raw
                 } catch {
                     modelAttempts.append(contentsOf: ModelRouter.attempts(from: error))
                     throw error
@@ -600,8 +618,12 @@ final class DictationController {
                 guard !raw.isEmpty else { return "" }
                 let system = Self.systemPrompt(mode: mode, context: context, terms: termHint,
                                                effort: settings.editingEffort,
-                                               format: settings.formatLevel)
-                let user = Self.userPrompt(mode: mode, context: context, transcript: raw)
+                                               format: settings.formatLevel,
+                                               suffix: settings.systemPromptSuffix)
+                let user = Self.userPrompt(mode: mode, context: context, transcript: raw,
+                                           suffix: settings.userPromptSuffix)
+                requestDetails.systemPrompt = system
+                requestDetails.userPrompt = user
                 do {
                     let processing = try await ModelRouter.chat(
                         models: languageModels,
@@ -628,13 +650,16 @@ final class DictationController {
                 let text = try await run()
                 let attemptsSnapshot = modelAttempts
                 let detailSnapshot = detailMessage
+                let requestSnapshot = requestDetails
                 await MainActor.run {
                     self.state = .idle
                     store.setRetranscribing(nil)
                     guard !text.isEmpty else {
+                        if self.settings.playSound { SoundPlayer.playFailure() }
                         store.updateEntry(request.entryID) { entry in
                             entry.modelAttempts = attemptsSnapshot
                             entry.detailMessage = tr("转录结果为空，原记录未改动。")
+                            entry.requestDetails = requestSnapshot
                         }
                         return
                     }
@@ -645,11 +670,12 @@ final class DictationController {
                         entry.retry = self.retryInfo(for: mode, context: context)
                         entry.modelAttempts = attemptsSnapshot
                         entry.detailMessage = detailSnapshot
+                        entry.requestDetails = requestSnapshot
                     }
                     TextInserter.insert(text, target: nil) { _ in }
                 }
             } catch {
-                finishWithFailure(error, attempts: modelAttempts)
+                finishWithFailure(error, attempts: modelAttempts, requestDetails: requestDetails)
             }
         }
     }
@@ -658,7 +684,8 @@ final class DictationController {
 
     static func systemPrompt(mode: Mode, context: DictationContext, terms: String,
                              effort: SettingsStore.EditingEffort = .medium,
-                             format: SettingsStore.FormatLevel = .plain) -> String {
+                             format: SettingsStore.FormatLevel = .plain,
+                             suffix: String = "") -> String {
         var lines: [String] = []
         switch mode {
         case .dictation:
@@ -707,7 +734,7 @@ final class DictationController {
         }
         lines.append(Self.effortSnippet(effort))
         lines.append(Self.formatSnippet(format))
-        return lines.joined(separator: "\n\n")
+        return appendingPromptSuffix(suffix, to: lines.joined(separator: "\n\n"))
     }
 
     /// 编辑力度:对转录文本改写程度的指令
@@ -741,7 +768,8 @@ final class DictationController {
         }
     }
 
-    static func userPrompt(mode: Mode, context: DictationContext, transcript: String) -> String {
+    static func userPrompt(mode: Mode, context: DictationContext, transcript: String,
+                           suffix: String = "") -> String {
         var lines: [String] = []
         if !context.isEmpty {
             var contextLines: [String] = []
@@ -763,7 +791,13 @@ final class DictationController {
             ```
             """)
         }
-        return lines.joined(separator: "\n\n")
+        return appendingPromptSuffix(suffix, to: lines.joined(separator: "\n\n"))
+    }
+
+    /// 用户自定义内容与内置 prompt 之间始终保留一个换行。
+    private static func appendingPromptSuffix(_ suffix: String, to prompt: String) -> String {
+        guard !suffix.isEmpty else { return prompt }
+        return prompt + "\n" + suffix
     }
 
     // MARK: - 错误提示

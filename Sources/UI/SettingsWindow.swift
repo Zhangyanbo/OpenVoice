@@ -11,7 +11,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     private let nav = SettingsNav()
 
     enum Tab: String, CaseIterable {
-        case general, models, personalization, privacy, glossary, history, request, about
+        case general, models, personalization, privacy, glossary, history, about
 
         var title: String {
             switch self {
@@ -21,7 +21,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             case .privacy: return tr("隐私")
             case .glossary: return tr("术语表")
             case .history: return tr("历史")
-            case .request: return tr("请求")
             case .about: return tr("关于")
             }
         }
@@ -34,7 +33,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             case .privacy: return "hand.raised.fill"
             case .glossary: return "character.book.closed.fill"
             case .history: return "clock.arrow.circlepath"
-            case .request: return "arrow.up.forward.app.fill"
             case .about: return "info.circle.fill"
             }
         }
@@ -47,7 +45,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
             case .privacy: return Color(red: 0.25, green: 0.55, blue: 0.9)
             case .glossary: return Color(red: 0.95, green: 0.61, blue: 0.19)
             case .history: return Color(red: 0.56, green: 0.45, blue: 0.86)
-            case .request: return Color(red: 0.85, green: 0.35, blue: 0.30)
             case .about: return Color(red: 0.52, green: 0.56, blue: 0.62)
             }
         }
@@ -94,8 +91,7 @@ struct SettingsRootView: View {
     @ObservedObject var settings = SettingsStore.shared
 
     var body: some View {
-        // 「请求」是调试功能,Debug 关闭时从侧边栏隐藏;若当前正停在请求页则退回通用页
-        let tabs = SettingsWindowController.Tab.allCases.filter { $0 != .request || settings.debugMode }
+        let tabs = SettingsWindowController.Tab.allCases
         HStack(spacing: 0) {
             sidebar(tabs)
             Divider()
@@ -107,7 +103,6 @@ struct SettingsRootView: View {
                 case .privacy: PrivacyPane()
                 case .glossary: GlossaryPane()
                 case .history: HistoryPane()
-                case .request: RequestPane()
                 case .about: AboutPane()
                 }
             }
@@ -115,9 +110,6 @@ struct SettingsRootView: View {
             .background(Color(nsColor: .windowBackgroundColor))
         }
         .frame(width: 720, height: 520)
-        .onChange(of: settings.debugMode) { _, debug in
-            if !debug && nav.tab == .request { nav.tab = .general }
-        }
     }
 
     private func sidebar(_ tabs: [SettingsWindowController.Tab]) -> some View {
@@ -409,11 +401,6 @@ private struct GeneralPane: View {
                     }
                     .labelsHidden().fixedSize().id(L10n.effective)
                 }
-                CardDivider()
-                SettingsRow(title: "Debug", subtitle: tr("在历史页显示最近一次请求详情")) {
-                    Toggle("", isOn: $settings.debugMode)
-                        .toggleStyle(.switch).controlSize(.small).labelsHidden()
-                }
             }
 
             SettingsCard(title: tr("快捷键"),
@@ -475,6 +462,57 @@ private struct PersonalizationPane: View {
                                     set: { settings.formatLevel = SettingsStore.FormatLevel.allCases[Int($0)] }))
                 }
             }
+
+            SettingsCard(title: tr("自定义提示词"),
+                         footer: tr("填写的文字会另起一行，追加到对应提示词末尾，并随每次后处理请求发送。")) {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(tr("系统提示词"))
+                        .font(.system(size: 13))
+                    PromptTextEditor(placeholder: tr("在这里添加系统提示词"),
+                                     text: $settings.systemPromptSuffix)
+                }
+                .padding(12)
+                CardDivider()
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(tr("用户提示词"))
+                        .font(.system(size: 13))
+                    PromptTextEditor(placeholder: tr("在这里添加用户提示词"),
+                                     text: $settings.userPromptSuffix)
+                }
+                .padding(12)
+            }
+        }
+    }
+}
+
+/// 长提示词编辑器：占满卡片宽度，内容超出时在框内滚动。
+private struct PromptTextEditor: View {
+    let placeholder: String
+    @Binding var text: String
+
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            TextEditor(text: $text)
+                .font(.system(size: 12))
+                .scrollContentBackground(.hidden)
+                .padding(.horizontal, 4)
+                .padding(.vertical, 3)
+            if text.isEmpty {
+                Text(placeholder)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.tertiary)
+                    .padding(.horizontal, 9)
+                    .padding(.vertical, 8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(height: 150)
+        .background(Color(nsColor: .textBackgroundColor))
+        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .strokeBorder(Color.primary.opacity(0.14), lineWidth: 1)
         }
     }
 }
@@ -1533,9 +1571,7 @@ private struct GlossaryRow: View {
 private struct HistoryPane: View {
     @ObservedObject var history = HistoryStore.shared
     @ObservedObject var settings = SettingsStore.shared
-    @ObservedObject var log = LastRequestLog.shared
     @State private var copiedID: UUID?
-    @State private var showDebug = false
     @State private var pendingDelete: HistoryStore.Entry?
     @State private var showingClearConfirmation = false
     @State private var expandedIDs = Set<UUID>()
@@ -1656,26 +1692,6 @@ private struct HistoryPane: View {
                 }
             }
 
-            if settings.debugMode {
-                DisclosureGroup(isExpanded: $showDebug) {
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: 8) {
-                            debugRow(tr("发送的上下文"), log.contextSummary)
-                            debugRow(tr("术语提示"), log.termHint.isEmpty ? tr("（无）") : log.termHint)
-                            debugRow(tr("文字插入"), log.insertTrace.isEmpty ? tr("（无）") : log.insertTrace)
-                            debugRow(tr("错误"), log.lastError ?? tr("（无）"))
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(10)
-                    }
-                    .frame(maxHeight: 130)
-                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                } label: {
-                    Text(tr("最近一次请求详情"))
-                        .font(.system(size: 11.5))
-                        .foregroundStyle(.secondary)
-                }
-            }
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 20)
@@ -1702,119 +1718,6 @@ private struct HistoryPane: View {
         }
     }
 
-    private func debugRow(_ title: String, _ content: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title).font(.system(size: 10.5, weight: .semibold)).foregroundStyle(.secondary)
-            Text(content)
-                .font(.system(size: 11, design: .monospaced))
-                .textSelection(.enabled)
-        }
-    }
-}
-
-// MARK: - 请求
-
-private struct RequestPane: View {
-    @ObservedObject var log = LastRequestLog.shared
-    @State private var copiedSection: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .firstTextBaseline) {
-                Text(tr("请求"))
-                    .font(.system(size: 20, weight: .bold))
-                Spacer()
-                if log.timestamp != nil {
-                    Text(tr("最近一次：%@", log.timestamp!.formatted(date: .abbreviated, time: .standard)))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                    Button(tr("复制全部")) { copy(allText(), id: "all") }
-                        .controlSize(.small)
-                }
-            }
-            .padding(.top, 34)
-
-            if log.timestamp == nil {
-                SettingsCard {
-                    VStack(spacing: 6) {
-                        Image(systemName: "arrow.up.forward.app")
-                            .font(.system(size: 24))
-                            .foregroundStyle(.quaternary)
-                        Text(tr("还没有发送过请求"))
-                            .font(.system(size: 12))
-                            .foregroundStyle(.tertiary)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 60)
-                }
-                .frame(maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 14) {
-                        payloadCard(tr("系统提示词"), log.systemPrompt)
-                        payloadCard(tr("用户提示词"), log.userPrompt)
-                        payloadCard(tr("转录原文"), log.transcript)
-                        payloadCard(tr("模型回复"), log.response.isEmpty ? tr("（无，请求失败或未到达整理阶段）") : log.response)
-                        payloadCard(tr("发送的上下文"), log.contextSummary)
-                        payloadCard(tr("术语提示"), log.termHint.isEmpty ? tr("（无）") : log.termHint)
-                        payloadCard(tr("文字插入"), log.insertTrace.isEmpty ? tr("（无）") : log.insertTrace)
-                        if let error = log.lastError {
-                            payloadCard(tr("错误"), error)
-                        }
-                    }
-                }
-                .frame(maxHeight: .infinity)
-            }
-        }
-        .padding(.horizontal, 24)
-        .padding(.bottom, 20)
-    }
-
-    private func payloadCard(_ title: String, _ content: String) -> some View {
-        SettingsCard(title: title) {
-            HStack {
-                Spacer()
-                Button {
-                    copy(content, id: title)
-                } label: {
-                    Label(copiedSection == title ? tr("已复制") : tr("复制"),
-                          systemImage: copiedSection == title ? "checkmark" : "doc.on.doc")
-                        .font(.system(size: 11))
-                        .labelStyle(.titleAndIcon)
-                }
-                .controlSize(.small)
-                .buttonStyle(.plain)
-                .foregroundStyle(copiedSection == title ? Color.green : Color.secondary)
-                .padding(.horizontal, 12)
-                .padding(.top, 6)
-            }
-            ScrollView {
-                Text(content.isEmpty ? tr("（空）") : content)
-                    .font(.system(size: 11, design: .monospaced))
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-            }
-            .frame(maxHeight: 160)
-        }
-    }
-
-    private func allText() -> String {
-        var parts: [String] = []
-        parts.append(tr("【系统提示词】") + "\n" + log.systemPrompt)
-        parts.append(tr("【用户提示词】") + "\n" + log.userPrompt)
-        parts.append(tr("【转录原文】") + "\n" + log.transcript)
-        parts.append(tr("【模型回复】") + "\n" + log.response)
-        return parts.joined(separator: "\n\n")
-    }
-
-    private func copy(_ text: String, id: String) {
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(text, forType: .string)
-        copiedSection = id
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-            if copiedSection == id { copiedSection = nil }
-        }
-    }
 }
 
 private struct HistoryRow: View {
@@ -1910,6 +1813,7 @@ private struct HistoryRow: View {
 
 private struct HistoryModelDetails: View {
     let entry: HistoryStore.Entry
+    @State private var presentedCapability: ModelCapability?
 
     private var transcriptionAttempts: [ModelAttempt] {
         entry.modelAttempts.filter { $0.capability == .transcription }
@@ -1927,10 +1831,12 @@ private struct HistoryModelDetails: View {
                     .foregroundStyle(.tertiary)
             } else {
                 if !transcriptionAttempts.isEmpty {
-                    attemptSection(title: tr("语音识别模型"), attempts: transcriptionAttempts)
+                    attemptSection(title: tr("语音识别模型"), attempts: transcriptionAttempts,
+                                   capability: .transcription)
                 }
                 if !processingAttempts.isEmpty {
-                    attemptSection(title: tr("后处理模型"), attempts: processingAttempts)
+                    attemptSection(title: tr("后处理模型"), attempts: processingAttempts,
+                                   capability: .language)
                 }
                 if let message = entry.detailMessage {
                     VStack(alignment: .leading, spacing: 3) {
@@ -1946,9 +1852,18 @@ private struct HistoryModelDetails: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .sheet(item: $presentedCapability) { capability in
+            if let details = entry.requestDetails {
+                HistoryRequestDetailsSheet(
+                    details: details,
+                    capability: capability,
+                    entryID: entry.id)
+            }
+        }
     }
 
-    private func attemptSection(title: String, attempts: [ModelAttempt]) -> some View {
+    private func attemptSection(title: String, attempts: [ModelAttempt],
+                                capability: ModelCapability) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.system(size: 10.5, weight: .semibold))
@@ -1981,8 +1896,141 @@ private struct HistoryModelDetails: View {
                                 .textSelection(.enabled)
                         }
                     }
+                    Spacer(minLength: 8)
+                    if entry.requestDetails != nil {
+                        IconButton(systemName: "doc.text.magnifyingglass",
+                                   tint: .secondary,
+                                   help: tr("查看请求详情")) {
+                            presentedCapability = capability
+                        }
+                    }
                 }
             }
+        }
+    }
+}
+
+private struct HistoryRequestDetailsSheet: View {
+    let details: HistoryStore.RequestDetails
+    let capability: ModelCapability
+    let entryID: UUID
+    @Environment(\.dismiss) private var dismiss
+    @State private var copiedSection: String?
+    @State private var inputSound: NSSound?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(capability == .transcription ? tr("语音识别请求详情") : tr("后处理请求详情"))
+                    .font(.system(size: 17, weight: .semibold))
+                Spacer()
+                Button(tr("完成")) { dismiss() }
+                    .keyboardShortcut(.defaultAction)
+            }
+            .padding(18)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 14) {
+                    if capability == .transcription {
+                        audioInputSection
+                        payloadSection(tr("识别语言"), details.recognitionLanguage)
+                        payloadSection(tr("提示词参数"), details.transcriptionPrompt ?? tr("（无）"))
+                        payloadSection(tr("原始输出"), details.rawTranscript ?? tr("（无）"))
+                    } else {
+                        payloadSection(tr("系统提示词"), details.systemPrompt ?? tr("（无）"))
+                        payloadSection(tr("用户提示词"), details.userPrompt ?? tr("（无）"))
+                    }
+                }
+                .padding(18)
+            }
+        }
+        .frame(width: 580, height: 460)
+        .onDisappear { inputSound?.stop() }
+    }
+
+    private var audioSummary: String {
+        let bytes = ByteCountFormatter.string(fromByteCount: Int64(details.audioByteCount),
+                                              countStyle: .file)
+        let seconds = max(0, Double(details.audioByteCount - 44) / 32_000)
+        let duration = Self.durationFormatter.string(from: seconds) ?? String(format: "%.1f s", seconds)
+        let retention = recordingAvailable ? tr("录音仍在本机保留") : tr("录音已按保留策略删除")
+        return "WAV · \(bytes) · \(duration)\n\(retention)"
+    }
+
+    private var recordingAvailable: Bool {
+        HistoryStore.shared.canRetranscribe(entryID)
+    }
+
+    private var audioInputSection: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text(tr("音频输入"))
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    guard let data = HistoryStore.shared.recordingData(for: entryID),
+                          let sound = NSSound(data: data) else { return }
+                    inputSound?.stop()
+                    inputSound = sound
+                    sound.play()
+                } label: {
+                    Label(tr("播放录音"), systemImage: "play.fill")
+                        .font(.system(size: 10.5))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.secondary)
+                .disabled(!recordingAvailable)
+            }
+            Text(audioSummary)
+                .font(.system(size: 11, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(Color(nsColor: .controlBackgroundColor),
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+        }
+    }
+
+    private static let durationFormatter: DateComponentsFormatter = {
+        let formatter = DateComponentsFormatter()
+        formatter.allowedUnits = [.minute, .second]
+        formatter.unitsStyle = .abbreviated
+        formatter.zeroFormattingBehavior = .pad
+        return formatter
+    }()
+
+    private func payloadSection(_ title: String, _ content: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 11.5, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(content, forType: .string)
+                    copiedSection = title
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
+                        if copiedSection == title { copiedSection = nil }
+                    }
+                } label: {
+                    Label(copiedSection == title ? tr("已复制") : tr("复制"),
+                          systemImage: copiedSection == title ? "checkmark" : "doc.on.doc")
+                        .font(.system(size: 10.5))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(copiedSection == title ? Color.green : Color.secondary)
+            }
+            Text(content)
+                .font(.system(size: 11, design: .monospaced))
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(10)
+                .background(Color(nsColor: .controlBackgroundColor),
+                            in: RoundedRectangle(cornerRadius: 7, style: .continuous))
         }
     }
 }

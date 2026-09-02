@@ -1171,6 +1171,16 @@
         }
       }
     },
+    "原始输出": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raw Output"
+          }
+        }
+      }
+    },
     "发送的上下文": {
       "localizations": {
         "en": {
@@ -1241,6 +1251,16 @@
         }
       }
     },
+    "后处理请求详情": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Post-processing Request Details"
+          }
+        }
+      }
+    },
     "后处理：%@": {
       "localizations": {
         "en": {
@@ -1307,6 +1327,36 @@
           "stringUnit": {
             "state": "translated",
             "value": "Show details of the last request on the History tab"
+          }
+        }
+      }
+    },
+    "在这里添加用户提示词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a user prompt here"
+          }
+        }
+      }
+    },
+    "在这里添加系统提示词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add a system prompt here"
+          }
+        }
+      }
+    },
+    "填写的文字会另起一行，追加到对应提示词末尾，并随每次后处理请求发送。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Your text starts on a new line at the end of the corresponding prompt and is sent with each post-processing request."
           }
         }
       }
@@ -1701,6 +1751,26 @@
         }
       }
     },
+    "录音仍在本机保留": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The recording is still stored on this Mac"
+          }
+        }
+      }
+    },
+    "录音已按保留策略删除": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The recording has been deleted according to the retention policy"
+          }
+        }
+      }
+    },
     "录音开始与结束时": {
       "localizations": {
         "en": {
@@ -1891,6 +1961,16 @@
         }
       }
     },
+    "提示词参数": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prompt Parameter"
+          }
+        }
+      }
+    },
     "提示：若使用 Fn，请先在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」。": {
       "localizations": {
         "en": {
@@ -1927,6 +2007,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Undo"
+          }
+        }
+      }
+    },
+    "播放录音": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Play Recording"
           }
         }
       }
@@ -2357,6 +2447,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "View source and documentation"
+          }
+        }
+      }
+    },
+    "查看请求详情": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View Request Details"
           }
         }
       }
@@ -2921,6 +3021,16 @@
         }
       }
     },
+    "自定义提示词": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Custom Prompts"
+          }
+        }
+      }
+    },
     "若使用 Fn，请在 系统设置 → 键盘 中把「按下 🌐 键时」设为「无操作」，避免与系统听写冲突。": {
       "localizations": {
         "en": {
@@ -2987,6 +3097,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Settings…"
+          }
+        }
+      }
+    },
+    "识别语言": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Recognition Language"
           }
         }
       }
@@ -3087,6 +3207,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Recognition Language"
+          }
+        }
+      }
+    },
+    "语音识别请求详情": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transcription Request Details"
           }
         }
       }
@@ -3477,6 +3607,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Korean"
+          }
+        }
+      }
+    },
+    "音频输入": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio Input"
           }
         }
       }
